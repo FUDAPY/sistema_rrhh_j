@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Gestion | LinGroup</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 20px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+
+<body class="bg-slate-50 flex h-screen overflow-hidden text-slate-600">
+
+    <aside class="w-[300px] bg-[#0f172a] text-slate-300 flex flex-col flex-shrink-0 shadow-2xl relative z-50">
+        
+        <div class="h-24 flex items-center px-8 border-b border-slate-800/50 bg-[#0f172a]">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/40">
+                    <i class="ph-fill ph-polygon text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-white text-lg tracking-tight">LIN GROUP</h1>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <p class="text-[9px] font-bold text-blue-500 uppercase tracking-[2px]">Gestion Humana</p>
+                        <span class="text-[9px] font-black text-slate-300 bg-slate-800 px-2 py-0.5 rounded-full">v<span data-system-version>5.7.0</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-6 border-b border-slate-800/50 bg-[#141d2f]">
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3 px-1">ESTADO DEL DIA</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-[#1e293b] p-3 rounded-2xl border border-slate-700/50 group hover:border-blue-500/30 transition-colors">
+                    <div class="flex justify-between items-start mb-1">
+                        <i class="ph-fill ph-users text-blue-500"></i>
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </div>
+                    <h3 id="dash-total-emp" class="text-2xl font-black text-white leading-none">0</h3>
+                    <p class="text-[8px] text-slate-400 font-bold mt-1 uppercase">PERSONAL</p>
+                </div>
+
+                <div class="bg-[#1e293b] p-3 rounded-2xl border border-slate-700/50 group hover:border-yellow-500/30 transition-colors">
+                    <div class="flex justify-between items-start mb-1">
+                        <i class="ph-fill ph-warning-circle text-yellow-500"></i>
+                    </div>
+                    <h3 id="dash-total-pend" class="text-2xl font-black text-white leading-none">0</h3>
+                    <p class="text-[8px] text-slate-400 font-bold mt-1 uppercase">PENDIENTES</p>
+                </div>
+            </div>
+        </div>
+
+        <nav id="sidebarMenu" class="flex-1 overflow-y-auto custom-scroll py-4 space-y-1">
+            <div class="px-8 py-10 text-center opacity-50 flex flex-col items-center">
+                <i class="ph ph-circle-notch animate-spin text-2xl mb-2 text-blue-500"></i>
+                <p class="text-[10px] font-bold uppercase tracking-widest">Cargando Menu...</p>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800/50 bg-[#0b1120]">
+            <div class="bg-[#1e293b] rounded-2xl p-3 flex items-center justify-between group hover:bg-[#253146] transition-colors border border-slate-700/50">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                        <i class="ph-fill ph-user"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userEmail" class="text-[11px] font-bold text-white truncate">Cargando...</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Admin</p>
+                    </div>
+                </div>
+                <button id="btnLogout" class="text-slate-400 hover:text-red-400 p-2 rounded-lg transition-colors" title="Salir">
+                    <i class="ph-bold ph-sign-out text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-slate-50">
+        
+        <header class="h-20 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center justify-between px-8 z-40 sticky top-0">
+            <div>
+                <h2 id="pageTitle" class="text-2xl font-black text-slate-800 tracking-tight">Panel Principal</h2>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
+                    <i class="ph-fill ph-calendar-blank"></i> <span id="currentDate">Hoy</span>
+                </p>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div id="systemStatusBadge" class="bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 flex items-center gap-2">
+                    <span id="systemStatusDot" class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span id="systemStatusText" class="text-[10px] font-black text-blue-900 uppercase tracking-widest">SISTEMA ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <section id="mainContent" class="flex-1 overflow-y-auto p-8 custom-scroll relative">
+            <div class="flex flex-col items-center justify-center h-full text-slate-300">
+                <i class="ph-duotone ph-spinner animate-spin text-5xl mb-4 text-blue-500"></i>
+                <p class="font-black text-sm uppercase tracking-widest">Iniciando Aplicacion...</p>
+            </div>
+        </section>
+
+        <footer class="border-t border-slate-200 bg-white/90 backdrop-blur px-8 py-4">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 text-xs font-bold text-slate-500">
+                <p>Sistema RRHH v<span data-system-version>5.7.0</span></p>
+                <p>Todos los derechos reservados 2026 a OTELAX DEV DEL GRUPO OTELAX HOLDING <a href="https://www.dev.otelax.com" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">www.dev.otelax.com</a></p>
+            </div>
+        </footer>
+
+    </main>
+
+    <div id="toast" class="fixed top-8 right-8 z-[100] transform -translate-y-40 opacity-0 transition-all duration-500 ease-out pointer-events-none">
+        <div class="bg-white border-l-[6px] border-blue-600 shadow-2xl rounded-2xl p-5 flex items-center gap-4 min-w-[320px] relative overflow-hidden">
+            <div class="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="ph-fill ph-info text-blue-600 text-xl"></i>
+            </div>
+            <div>
+                <h4 id="toastTitle" class="font-black text-slate-800 text-xs uppercase tracking-wide">NOTIFICACION</h4>
+                <p id="toastMessage" class="text-[11px] text-slate-500 font-bold mt-0.5">Accion completada.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').innerText = new Date().toLocaleDateString('es-ES', dateOptions);
+    </script>
+
+    <script type="module" src="js/system.js"></script>
+</body>
+</html>
