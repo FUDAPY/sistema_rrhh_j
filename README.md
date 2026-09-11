@@ -67,21 +67,22 @@ RRHH quedan **pendientes de rendición** y los aprueba el ADMIN.
 
 ## 2. Stack tecnológico y versiones
 
-| Capa           | Tecnología                             | Versión                            |
-| -------------- | -------------------------------------- | ---------------------------------- |
-| Runtime        | Node.js                                | ≥ 22.12 (LTS 22 · probado en 24.x) |
-| Lenguaje       | JavaScript ES Modules                  | ES2022                             |
-| Backend        | Express                                | 5.x                                |
-| Base de datos  | MongoDB (driver oficial)               | driver 7.x                         |
-| Auth           | jsonwebtoken + bcryptjs                | 9.x / 3.x                          |
-| Build frontend | Vite                                   | 8.x                                |
-| Estilos        | Tailwind CSS + PostCSS + autoprefixer  | 3.4 / 8.x / 10.x                   |
-| Iconos         | Phosphor Icons (CDN)                   | —                                  |
-| Tests          | Vitest                                 | 5.x                                |
-| Lint / Format  | ESLint (flat) + Prettier               | 10.x / 3.x                         |
-| Assets         | sharp (dev)                            | 0.35.x                             |
-| Migración      | firebase-admin (dev, solo para migrar) | 14.x                               |
-| Deploy         | Dokploy + Railpack                     | —                                  |
+| Capa             | Tecnología                             | Versión                            |
+| ---------------- | -------------------------------------- | ---------------------------------- |
+| Runtime          | Node.js                                | ≥ 22.12 (LTS 22 · probado en 24.x) |
+| Lenguaje         | JavaScript ES Modules                  | ES2022                             |
+| Backend          | Express                                | 5.x                                |
+| Base de datos    | MongoDB (driver oficial)               | driver 7.x                         |
+| Auth             | jsonwebtoken + bcryptjs                | 9.x / 3.x                          |
+| Build frontend   | Vite                                   | 8.x                                |
+| Estilos          | Tailwind CSS + PostCSS + autoprefixer  | 3.4 / 8.x / 10.x                   |
+| Iconos           | Phosphor Icons (CDN)                   | —                                  |
+| Tests            | Vitest                                 | 5.x                                |
+| Lint / Format    | ESLint (flat) + Prettier               | 10.x / 3.x                         |
+| Assets           | sharp (dev)                            | 0.35.x                             |
+| Excel (planilla) | exceljs (navegador, carga diferida)    | 4.4.x                              |
+| Migración        | firebase-admin (dev, solo para migrar) | 14.x                               |
+| Deploy           | Dokploy + Railpack                     | —                                  |
 
 > No se usa TypeScript ni ORM: acceso directo al driver de MongoDB.
 
@@ -115,6 +116,8 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 │   │   ├── vales.js        # Vistas de vales (admin) + cupo
 │   │   ├── ausencias.js    # Tardanzas/faltas + multa
 │   │   ├── comisiones.js   # Registro y reporte de comisiones
+│   │   ├── planilla.js     # Reglas de la planilla de asistencia (puro, testeable)
+│   │   ├── planilla-import.js # Importar Excel + reporte A4 + guardar descuentos
 │   │   ├── db.js           # Cliente de datos (API tipo Firestore sobre REST+SSE)
 │   │   ├── auth.js         # Auth JWT (API tipo Firebase Auth)
 │   │   ├── firebase-config.js  # Re-exporta db/auth
@@ -126,7 +129,7 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 │   │   └── login.js        # Login
 │   └── static/             # Copiado tal cual al build (manifest, iconos PWA)
 │
-├── scripts/                # Utilidades (migración, assets, smoke, usuarios)
+├── scripts/                # Utilidades (migración, assets, smoke, usuarios, planilla del reloj)
 ├── tests/                  # Tests unitarios (Vitest)
 ├── vite.config.js          # Build multi-página + proxy /api en dev
 ├── tailwind.config.js      # Tokens de diseño
@@ -203,6 +206,100 @@ firmas** (quien recibe y quien paga).
   Ticket**, que vuelve a emitir los dos ejemplares con la fecha/hora original del movimiento.
 - `employeeDni` y `payerName` se guardan en `salaries`/`vales` para que la reimpresión sea fiel.
 
+### Planilla de asistencia de relojes biométricos
+
+Flujo desde **Descuentos (-) → Importar Excel** (`public/js/planilla-import.js` + `public/js/planilla.js`):
+
+1. **Se lee el `.xlsx` del reloj tal cual sale del equipo.** El sistema detecta solo si es el **reporte
+   matricial por bloques** (título, periodo en la col. C, cabecera de días 1..31 y un par de filas por
+   funcionario) o una tabla normal (una fila por marcación); en el primer caso **no hay que mapear
+   columnas**. Muestra el periodo detectado, los días, los funcionarios y cuántas marcas leyó.
+2. **Listado `ID del reloj ↔ Funcionario`**: ID, nombre del archivo, funcionario del sistema, C.I.,
+   sucursal y cantidad de marcas, exportable a CSV (`exportarIdsPlanilla()`). El reloj se carga con
+   **la C.I. del funcionario** y el sistema cruza por `id interno → C.I. normalizada → nombre exacto →
+tokens del nombre` (los dos últimos solo cuando el resultado es inequívoco). Los IDs que no cruzan
+   se listan aparte para corregirlos, y también se avisa de los funcionarios **sin ninguna marcación**
+   (suelen ser los que faltan cargar en el reloj, no ausencias de todo el mes) con un botón para
+   excluirlos de un clic.
+3. **Reglas aplicadas** por funcionario y por día laborable del periodo:
+    - **29 min** de gracia (sin descuento).
+    - **30 min o más**: **Gs. 30.000 por cada bloque de 30 min** de retraso.
+    - **Más de 2 h** de retraso: **1 día completo** = `salario / 30`.
+    - **Sin marcación** (ausencia): **1 día completo** = `salario / 30`.
+    - La hora de entrada esperada sale del horario de la **sucursal** (`sucursales.entrada`), con override
+      general en el modal. La ventana de vigencia (`startDate`/`endDate`) y los **días laborables**
+      configurables evitan ausencias falsas; los inactivos sin marcaciones no se incluyen.
+4. **Reporte A4.** Vista de impresión A4 con logo, dirección y periodo, y por cada funcionario:
+   **NOMBRE, C.I., sucursal, tardanzas/minutos, ausencias, días descontados y MONTO**, más una fila de
+   **RAZÓN** con el detalle exacto:
+   `RAZÓN: (FECHAS AUSENTES 04/08, 11/08; HORARIOS TARDIOS EN FECHAS 02/08 08:35 (35 min, Gs. 30.000))`.
+   Totales generales, firmas y botón **Imprimir / Guardar como PDF**.
+5. **Guardar descuentos.** Crea un registro por funcionario en `descuentos` con
+   `origen: 'PLANILLA_BIOMETRICA'`, `periodKey`, `mes`/`anio`, `month`/`year`, `date: '<periodo>-01'` y el
+   detalle de tardanzas/ausencias, para que la liquidación lo impute al mes correcto. Si ese funcionario ya
+   tiene una importación del mismo periodo, la fila se marca **YA IMPORTADO** y queda excluida.
+
+> ⚠️ **Dos decisiones de negocio pendientes de confirmar por RRHH/Gerencia** (parametrizadas en
+> `REGLAS_PLANILLA`, `public/js/planilla.js`):
+>
+> - `modoBloques: 'completos'` (actual) descuenta por tramo **completo**: 30-59 min = Gs. 30.000. Con
+>   `'iniciados'` también cuenta el tramo empezado (31 min = Gs. 60.000).
+> - `usarMayorEnDiaCompleto: false` (actual) aplica literalmente 1 día cuando el retraso supera las 2 h.
+>   Como 120 min de bloques son Gs. 120.000 y 1 día son Gs. 80.000 (salario 2.400.000), con `true` se
+>   descuenta el mayor de ambos y desaparece esa discontinuidad.
+
+Formatos aceptados: **.xlsx/.xlsm** del reloj (reporte por bloques **o** tabla de una fila por
+marcación) y **.csv/.txt**. Un `.xls` antiguo debe guardarse como `.xlsx`. `exceljs` se carga **solo al
+pulsar el botón** (chunk aparte, no afecta el arranque).
+
+#### Estructura del reporte del reloj (matriz por bloques)
+
+El reporte de los relojes llega como **matriz por bloques**, no como «una fila por marcación»:
+
+```
+Fila 0  "Reporte de Eventos de Asistencia"
+Fila 2  Periodo en la col. C: "2026-08-01 ~ 2026-08-31"
+Fila 3  Cabecera de dias del mes: 1, 2, 3, ... 31 (una columna por dia)
+Fila 4  "ID:" (col 0) · <ID> (col 2) · "Nombre:" (col 8) · <nombre> (col 10) · "Departamento:" (col 18) · <valor> (col 20)
+Fila 5  Marcaciones alineadas a los dias de la fila 3 (celda vacia = sin marcacion)
+Fila 6, 7 ... se repite el par de filas por cada funcionario
+```
+
+La **lectura la hace el propio panel** (`parsearBloquesAsistencia`, en `public/js/planilla.js`) **sin
+posiciones fijas**: detecta la fila de días, deduce el desplazamiento de las columnas, busca las
+etiquetas `ID`/`Nombre`/`Departamento` en cualquier columna y toma el valor que está **2 columnas a la
+derecha** (con fallback al primer valor no vacío). Recorre las filas buscando `ID:` para armar
+`ID → Nombre → marcaciones por día`, y tolera:
+
+- varias marcas por día (`08:00 12:00 13:00 18:00`, incluso con saltos de línea);
+- horas como `time` de Excel, seriales numéricos o texto (`07:35 p.m.`);
+- encabezados de página **repetidos** (se omiten y se avisan);
+- **bloques repetidos del mismo ID** (se fusionan los días);
+- la fila de marcaciones **vacía** (funcionario sin marcar) o directamente ausente (se avisa);
+- que los días arranquen en cualquier columna (col 0 o corridos);
+- meses sin periodo legible: se usa el selector de periodo del modal.
+
+Verificado contra el archivo real del reloj: **115 funcionarios, 147 marcas, 31 días y 0 avisos**
+(el parser Python devuelve exactamente el mismo resultado).
+
+#### Parser alternativo en Python (opcional)
+
+`scripts/parse_asistencia.py` implementa la **misma lógica** con pandas + openpyxl, para procesar
+planillas fuera del sistema (ETL, lotes, revisión previa) y dejar un CSV que el panel también sabe leer:
+
+```powershell
+pip install -r scripts/requirements-asistencia.txt   # pandas + openpyxl (xlrd solo si hay .xls)
+npm run asistencia:parse -- planilla.xlsx --out-dir salida --json
+npm run asistencia:test                              # 14 pruebas del parser
+```
+
+Salidas: `asistencia_largo.csv` (`ID;NOMBRE;DEPARTAMENTO;FECHA;DIA;ENTRADA;SALIDA;MARCADAS`, con los
+mismos encabezados que detecta `detectarColumnas()`, garantizado por un test de contrato),
+`asistencia_matriz.csv` (`DIA_01..DIA_31`) y `asistencia.json`.
+
+Ambos caminos terminan en el **mismo motor** (`public/js/planilla.js`): reglas, reporte A4 con la razón
+detallada y guardado de descuentos.
+
 ### Manejo de errores
 
 - Formato estándar: `{ "error": "mensaje" }` con el código HTTP adecuado
@@ -256,6 +353,9 @@ npm run migrate             # migra Firestore -> MongoDB (una sola vez)
 npm run inventory           # inventario de colecciones de Firestore
 npm run probe               # verifica conexion a MongoDB
 npm run tls:check -- <dominio>  # diagnostico del certificado HTTPS (Traefik/Dokploy)
+npm run ids:biometric       # lista ID del reloj <-> funcionario y genera ids-reloj.csv
+npm run asistencia:parse -- planilla.xlsx --out-dir salida --json   # parser Python del reporte del reloj
+npm run asistencia:test     # pruebas del parser Python (pytest)
 npm run user:create -- <email> <password> [ADMIN|RRHH] [Nombre]
 npm run assets:optimize     # optimiza el logo y genera iconos PWA
 ```
@@ -345,20 +445,20 @@ Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": tr
 
 ## 9. Modelo de datos (MongoDB, base `rrhh`)
 
-| Colección                    | Campos principales                                                                                                                        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `employees`                  | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address` |
-| `salaryHistory`              | `employeeId`, `previousSalary`, `newSalary`, `effectiveFrom`, `reason` (+ auditoría)                                                      |
-| `vales`                      | `employeeId`, `amount`, `requestedAmount`, `approvedAmount`, `reason`, `status`, `estadoAprobacion`, `valeDateKey`, `paymentCode`         |
-| `salaries`                   | `employeeId`, `netPay`, `salaryBase`, `month`, `year`, `date`, `type` (LIQUIDACION/INDIVIDUAL), `paymentCode`, `estadoAprobacion`         |
-| `descuentos`                 | `employeeId`, `amount`, `reason`, `date`, `status` (Aplicado), `deleted`                                                                  |
-| `ausencias`                  | `employeeId`, `type`, `startDate`, `endDate`, `minutosTarde`, `montoDescuento`                                                            |
-| `comisiones`                 | `employeeId`, `amount`, `reason`, `status` (Pendiente/Aprobado/Pagado)                                                                    |
-| `evaluaciones`               | `employeeId`, `score`, período                                                                                                            |
-| `sucursales`                 | `name`, `entrada`, `salida`                                                                                                               |
-| `proveedores`                | `name`, `ruc`, `phone`, `category`, `address`                                                                                             |
-| `users`                      | `email`, `role`, `fullName`, `passwordHash` (nunca sale al cliente)                                                                       |
-| `health`, `salaryCarryovers` | Soporte                                                                                                                                   |
+| Colección                    | Campos principales                                                                                                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `employees`                  | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address`                                                                       |
+| `salaryHistory`              | `employeeId`, `previousSalary`, `newSalary`, `effectiveFrom`, `reason` (+ auditoría)                                                                                                                            |
+| `vales`                      | `employeeId`, `amount`, `requestedAmount`, `approvedAmount`, `reason`, `status`, `estadoAprobacion`, `valeDateKey`, `paymentCode`                                                                               |
+| `salaries`                   | `employeeId`, `netPay`, `salaryBase`, `month`, `year`, `date`, `type` (LIQUIDACION/INDIVIDUAL), `paymentCode`, `estadoAprobacion`                                                                               |
+| `descuentos`                 | `employeeId`, `amount`, `reason`, `date`, `status` (Aplicado), `deleted`; desde la planilla: `origen`, `periodKey`, `mes`/`anio`, `month`/`year`, `minutosRetraso`, `tardanzas`, `ausencias`, `diasDescontados` |
+| `ausencias`                  | `employeeId`, `type`, `startDate`, `endDate`, `minutosTarde`, `montoDescuento`                                                                                                                                  |
+| `comisiones`                 | `employeeId`, `amount`, `reason`, `status` (Pendiente/Aprobado/Pagado)                                                                                                                                          |
+| `evaluaciones`               | `employeeId`, `score`, período                                                                                                                                                                                  |
+| `sucursales`                 | `name`, `entrada`, `salida`                                                                                                                                                                                     |
+| `proveedores`                | `name`, `ruc`, `phone`, `category`, `address`                                                                                                                                                                   |
+| `users`                      | `email`, `role`, `fullName`, `passwordHash` (nunca sale al cliente)                                                                                                                                             |
+| `health`, `salaryCarryovers` | Soporte                                                                                                                                                                                                         |
 
 Los IDs de MongoDB son `string`. **Soft-delete**: `deleted: true` con `deletedAt` / `deletedBy`.
 Los estados de un vale: `Pendiente → Aprobado → Cobrado` (o `Rechazado` / `Anulado`).

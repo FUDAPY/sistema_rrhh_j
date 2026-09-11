@@ -30,3 +30,13 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+# Reportes generados con datos de funcionarios (no versionar)
+ids-reloj.csv
+planilla-*.csv
+
+# Python (parser de la planilla del reloj)
+__pycache__/
+.pytest_cache/
+*.pyc
+salida/

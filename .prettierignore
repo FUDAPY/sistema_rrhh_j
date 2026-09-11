@@ -6,3 +6,5 @@ public/static/
 public/logo.png
 public/favicon.ico
 *.min.js
+.pytest_cache/
+__pycache__/

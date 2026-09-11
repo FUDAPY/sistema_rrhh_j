@@ -33,6 +33,7 @@ import * as ValesModule from './vales.js';
 import * as SalariosModule from './salarios.js';
 import * as ComisionesModule from './comisiones.js';
 import * as AusenciasModule from './ausencias.js';
+import * as PlanillaModule from './planilla-import.js';
 
 const VERSION = '5.7.0';
 
@@ -255,6 +256,19 @@ function initApp() {
     AusenciasModule.initAusenciasListeners(showToast);
 
     initRRHHGlobalListeners();
+
+    // Importador de la planilla de asistencia de los relojes biometricos.
+    window.abrirImportadorPlanilla = () => {
+        PlanillaModule.abrirImportadorPlanilla({
+            empleados: employeesData,
+            sucursales: sucursalesData,
+            descuentos: descuentosData,
+            obtenerDescuentos: () => descuentosData,
+            usuario: auth.currentUser,
+            toastCb: showToast,
+        });
+    };
+
     if (currentUserRole) renderContent();
 }
 
@@ -1873,6 +1887,23 @@ function viewAdminDescuentos() {
 
     let html = `
     <div class="max-w-6xl mx-auto space-y-8 fade-in pb-20">
+        <div class="bg-white p-8 rounded-[40px] shadow-xl border border-indigo-100">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl"><i class="ph-fill ph-clock-user"></i></div>
+                    <div>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight">Planilla del reloj biometrico</h3>
+                        <p class="text-[11px] font-bold text-slate-500 mt-1 max-w-xl">
+                            Importa el Excel de asistencia: primero lista los IDs del reloj con su funcionario, luego calcula tardanzas (29 min de gracia, Gs. 30.000 por cada 30 min) y ausencias (1 dia completo), y emite un reporte A4 para imprimir o guardar como PDF.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="abrirImportadorPlanilla()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black px-8 py-4 rounded-2xl shadow-xl shadow-indigo-200 flex items-center justify-center gap-3 whitespace-nowrap">
+                    <i class="ph-bold ph-file-xls text-xl"></i> IMPORTAR EXCEL
+                </button>
+            </div>
+        </div>
+
         <div class="bg-white p-10 rounded-[40px] shadow-2xl border border-red-50">
             <h3 class="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
                 <div class="w-10 h-10 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-xl"><i class="ph-fill ph-warning-circle"></i></div>

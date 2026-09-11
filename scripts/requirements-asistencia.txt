@@ -1,0 +1,10 @@
+# Dependencias del lector de planillas de asistencia (scripts/parse_asistencia.py)
+# Instalar:  pip install -r scripts/requirements-asistencia.txt
+pandas>=2.2
+openpyxl>=3.1
+
+# Opcional: solo si el reloj exporta Excel antiguo (.xls, BIFF)
+# xlrd>=2.0
+
+# Opcional: para ejecutar las pruebas del parser
+# pytest>=8.0
