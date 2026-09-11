@@ -1,6 +1,7 @@
 // public/js/proveedores.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from "./db.js";
 import { db } from "./firebase-config.js";
+import { uiConfirm } from "./ui.js";
 
 let _toast = null;
 
@@ -12,7 +13,8 @@ export function initProveedoresListeners(toastCb) {
 
     // Función para borrar proveedor
     window.deleteProveedor = async (id, name) => {
-        if(!confirm(`¿Estás seguro de eliminar a ${name} de la lista de proveedores?`)) return;
+        const confirmado = await uiConfirm({ title: 'Eliminar proveedor', message: `¿Estás seguro de eliminar a ${name} de la lista de proveedores?`, tone: 'danger', confirmText: 'Eliminar' });
+        if (!confirmado) return;
         try {
             await deleteDoc(doc(db, "proveedores", id));
             if(_toast) _toast("Eliminado", "Proveedor borrado correctamente.");

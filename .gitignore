@@ -1,9 +1,22 @@
-# Firebase
-.firebase/
-
 # Node
 node_modules/
 npm-debug.log*
+
+# Build output
+dist/
+
+# Firebase deploy artifacts
+.firebase/
+hosting.*.cache
+
+# Secretos (NUNCA versionar)
+*firebase-adminsdk*.json
+serviceAccount*.json
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.template
 
 # Logs
 *.log

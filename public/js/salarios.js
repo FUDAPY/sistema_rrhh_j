@@ -1,5 +1,7 @@
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from "./db.js";
 import { auth, db } from "./firebase-config.js";
+import { uiConfirm } from "./ui.js";
+import * as Export from "./export.js";
 import { printTicket } from "./print-service.js"; 
 
 const parseMonto = (valor) => {
@@ -106,18 +108,61 @@ export function getEffectiveSalaryAmountForDate(emp, referenceDate = new Date())
     return getEffectiveSalaryAmountForPeriod(emp, referenceDate.getFullYear(), referenceDate.getMonth() + 1);
 }
 
-window.filterPaymentHistory = (text) => {
-    const term = text.toLowerCase();
-    const items = document.querySelectorAll('.history-item');
-    let hasResults = false;
-    items.forEach(item => {
-        const name = item.getAttribute('data-name').toLowerCase();
-        if(name.includes(term)) { item.classList.remove('hidden'); hasResults = true; } 
-        else { item.classList.add('hidden'); }
+// ---------------------------- Historial: busqueda, mes y paginacion ----------------------------
+const HISTORY_PAGE = 40;
+let historyState = { search: '', month: '', limit: HISTORY_PAGE };
+
+function applyHistoryFilters() {
+    const items = Array.from(document.querySelectorAll('.history-item'));
+    let matched = 0;
+
+    items.forEach((item) => {
+        const name = (item.getAttribute('data-name') || '').toLowerCase();
+        const month = item.getAttribute('data-month') || '';
+        const isMatch =
+            (!historyState.search || name.includes(historyState.search)) &&
+            (!historyState.month || month === historyState.month);
+        if (isMatch) matched += 1;
+        item.classList.toggle('hidden', !isMatch || matched > historyState.limit);
     });
+
     const msg = document.getElementById('noResultsMsg');
-    if(msg) msg.classList.toggle('hidden', hasResults);
+    if (msg) msg.classList.toggle('hidden', matched > 0);
+
+    const count = document.getElementById('historyCount');
+    if (count) count.textContent = matched === 0 ? '' : `Mostrando ${Math.min(historyState.limit, matched)} de ${matched} pagos`;
+
+    const more = document.getElementById('historyLoadMore');
+    if (more) {
+        const remaining = matched - historyState.limit;
+        more.classList.toggle('hidden', remaining <= 0);
+        if (remaining > 0) more.textContent = `Ver mas (${remaining} restantes)`;
+    }
+}
+
+window.filterPaymentHistory = (text) => {
+    historyState.search = String(text || '').toLowerCase();
+    applyHistoryFilters();
 };
+
+window.filterPaymentHistoryMonth = (value) => {
+    historyState.month = value || '';
+    applyHistoryFilters();
+};
+
+window.loadMorePaymentHistory = () => {
+    historyState.limit += HISTORY_PAGE;
+    applyHistoryFilters();
+};
+
+export function setupHistorySalaries() {
+    historyState = { search: '', month: '', limit: HISTORY_PAGE };
+    const input = document.getElementById('historySearch');
+    if (input) input.value = '';
+    const select = document.getElementById('historyMonth');
+    if (select) select.value = '';
+    applyHistoryFilters();
+}
 
 function countBusinessDays(year, month, startDay = 1, endDay = null) {
     const lastDayOfMonth = new Date(year, month, 0).getDate(); 
@@ -879,7 +924,8 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
             const liveRecord = getMovementRecord(movement.source, movement.id);
             if (!liveRecord) return toastCb("Error", "El movimiento no existe.");
             if (isSoftDeleted(liveRecord)) return toastCb("Error", "El movimiento ya fue eliminado.");
-            if (!confirm(`Eliminar ${movement.type} por Gs. ${movement.amount.toLocaleString('es-PY')}?`)) return;
+            const confirmado = await uiConfirm({ title: 'Eliminar movimiento', message: `Eliminar ${movement.type} por Gs. ${movement.amount.toLocaleString('es-PY')}?`, tone: 'danger', confirmText: 'Eliminar' });
+            if (!confirmado) return;
 
             const patch = {
                 deleted: true,
@@ -934,8 +980,9 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                 const ticketEmployee = getEmployeeTicketSnapshot(emp);
                 const paymentCode = buildPaymentCode(emp.id, chosenDate, 'SAL');
                 const paymentGroupId = buildPaymentGroupId(emp.id, chosenDate, 'SAL');
-                if(amountRaw <= 0) return alert("Ingrese un monto valido");
-                if(!confirm(`Registrar pago de Gs. ${amountRaw.toLocaleString()}?`)) return;
+                if(amountRaw <= 0) return toastCb('Error', 'Ingrese un monto valido');
+                const confirmado = await uiConfirm({ title: 'Registrar pago', message: `Registrar pago de Gs. ${amountRaw.toLocaleString()}?`, tone: 'info', confirmText: 'Registrar' });
+                if (!confirmado) return;
                 
                 btnPay.disabled = true; btnPay.innerText = 'GUARDANDO...';
                 try {
@@ -1301,19 +1348,19 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             const paymentGroupId = buildPaymentGroupId(empId, fechaPago, 'IND');
             
             if (!empId || montoPago <= 0) {
-                alert("Por favor seleccione un funcionario y un monto valido.");
+                toastCb('Error', 'Por favor seleccione un funcionario y un monto valido.');
                 restoreSubmitButton(btn);
                 return;
             }
 
             if (!selectedEmployee) {
-                alert("No se encontro el funcionario seleccionado. Busquelo nuevamente en la lista.");
+                toastCb('Error', 'No se encontro el funcionario seleccionado. Busquelo nuevamente en la lista.');
                 restoreSubmitButton(btn);
                 return;
             }
 
             if (!ticketEmployee.name) {
-                alert("No se pudo resolver el nombre del funcionario. Seleccione nuevamente desde la lista.");
+                toastCb('Error', 'No se pudo resolver el nombre del funcionario. Seleccione nuevamente desde la lista.');
                 restoreSubmitButton(btn);
                 return;
             }
@@ -1393,12 +1440,12 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                 doubleTicket: isRRHH
             }).catch(err => console.error("Error al imprimir ticket:", err));
 
-            alert("Pago registrado correctamente.\nEl sistema ha actualizado los saldos.");
+            toastCb('Exito', 'Pago registrado correctamente. El sistema ha actualizado los saldos.');
             return;
 
         } catch (error) {
             console.error("ERROR GRAVE:", error);
-            alert("Ocurrio un error al guardar.");
+            toastCb('Error', 'Ocurrio un error al guardar.');
         } finally {
             restoreSubmitButton(btn);
         }
@@ -1408,21 +1455,36 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
 // ==========================================
 // 5. VISTA: HISTORIAL PAGOS
 // ==========================================
+let historySalaries = [];
+let historyEmployees = [];
+
 export function getViewHistorySalaries(salaries, employees) {
+    historySalaries = salaries || [];
+    historyEmployees = employees || [];
     const sortedSalaries = [...salaries].sort((a,b) => {
         const dateA = a.createdAt ? a.createdAt.toDate() : new Date(a.date || 0);
         const dateB = b.createdAt ? b.createdAt.toDate() : new Date(b.date || 0);
         return dateB - dateA;
     });
 
+    const monthKeys = [...new Set(sortedSalaries.map(p => p.periodKey || (p.date ? String(p.date).slice(0, 7) : '')).filter(Boolean))].sort().reverse();
+    const monthOptions = monthKeys.map(k => `<option value="${k}">${k}</option>`).join('');
+
     let html = `
     <div class="max-w-4xl mx-auto space-y-6 fade-in pb-20">
         <div class="bg-white p-6 rounded-[30px] shadow-lg border border-indigo-50 sticky top-4 z-20">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div><h3 class="text-2xl font-black text-slate-800">Historial de Pagos</h3><p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Cronologia de Egresos</p></div>
-                <div class="relative w-full md:w-1/2">
-                    <input type="text" oninput="filterPaymentHistory(this.value)" placeholder="Filtrar por nombre..." class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3 pl-10 pr-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all">
-                    <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                    <select id="historyMonth" onchange="filterPaymentHistoryMonth(this.value)" class="bg-slate-50 border-2 border-slate-100 rounded-2xl py-3 px-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all">
+                        <option value="">Todos los meses</option>
+                        ${monthOptions}
+                    </select>
+                    <div class="relative flex-1 sm:w-64">
+                        <input id="historySearch" type="text" oninput="filterPaymentHistory(this.value)" placeholder="Filtrar por nombre..." class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-3 pl-10 pr-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all">
+                        <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                    </div>
+                    ${Export.exportButton('exportSalariesCsv()')}
                 </div>
             </div>
         </div>
@@ -1431,7 +1493,7 @@ export function getViewHistorySalaries(salaries, employees) {
 
     if(sortedSalaries.length === 0) return html + '<div class="text-center py-20 text-slate-300 font-bold text-xl">No hay pagos registrados aun.</div></div>';
 
-    sortedSalaries.forEach(pay => {
+    sortedSalaries.forEach((pay, index) => {
         const emp = employees ? employees.find(e => e.id === pay.employeeId) : null;
         const snapshotName = (pay.employeeName || '').trim();
         const snapshotPosition = (pay.employeePosition || '').trim();
@@ -1453,7 +1515,7 @@ export function getViewHistorySalaries(salaries, employees) {
         const borderColor = isInd ? 'border-indigo-100' : 'border-emerald-100';
 
         html += `
-            <div class="history-item bg-white p-5 rounded-[25px] border ${borderColor} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-center gap-4" data-name="${`${empName} ${pay.employeeId || ''} ${pay.sourceModule || ''} ${paymentCode}`.toLowerCase()}">
+            <div class="history-item${index >= HISTORY_PAGE ? ' hidden' : ''} bg-white p-5 rounded-[25px] border ${borderColor} shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-center gap-4" data-name="${`${empName} ${pay.employeeId || ''} ${pay.sourceModule || ''} ${paymentCode}`.toLowerCase()}" data-month="${pay.periodKey || (pay.date ? String(pay.date).slice(0, 7) : '')}">
                 <div class="flex items-center gap-4 w-full md:w-auto">
                     <div class="w-12 h-12 rounded-2xl ${color} flex items-center justify-center text-2xl flex-shrink-0"><i class="ph-fill ${icon}"></i></div>
                     <div class="overflow-hidden">
@@ -1474,7 +1536,12 @@ export function getViewHistorySalaries(salaries, employees) {
                 </div>
             </div>`;
     });
-    return html + `</div></div>`;
+    return html + `
+        <div class="flex flex-col items-center gap-3 pt-4">
+            <p id="historyCount" class="text-xs font-bold text-slate-400"></p>
+            <button id="historyLoadMore" type="button" onclick="loadMorePaymentHistory()" class="hidden bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-black text-[11px] uppercase tracking-wider px-6 py-3 rounded-2xl shadow-sm transition-colors"></button>
+        </div>
+    </div></div>`;
 }
 
 export function getViewPaymentAudit(salaries, employees) {
@@ -1702,6 +1769,24 @@ export function setupPaymentAuditLogic() {
     applyFilters();
 }
 
-export function initSalariosGlobalListeners(toastCb) {}
+export function initSalariosGlobalListeners(toastCb) {
+    window.exportSalariesCsv = () => {
+        const empName = (id) => historyEmployees.find(e => e.id === id)?.fullName || id;
+        const columns = [
+            { label: 'Fecha', value: (s) => s.date || '' },
+            { label: 'Funcionario', value: (s) => s.employeeName || empName(s.employeeId) },
+            { label: 'Cargo', value: (s) => s.employeePosition || '' },
+            { label: 'Sucursal', value: (s) => s.employeeBranch || '' },
+            { label: 'Periodo', value: (s) => s.periodKey || (s.month && s.year ? `${s.year}-${String(s.month).padStart(2, '0')}` : '') },
+            { label: 'Tipo', value: (s) => s.type || 'LIQUIDACION' },
+            { label: 'Detalle', value: (s) => s.details || '' },
+            { label: 'Neto', value: (s) => Number(s.netPay) || 0 },
+            { label: 'Estado', value: (s) => s.status || '' },
+            { label: 'Rendicion', value: (s) => s.estadoAprobacion || '' },
+        ];
+        Export.downloadCsv(`pagos-${Export.dateStamp()}`, columns, historySalaries.filter(s => !s.deleted));
+        toastCb('Exportado', 'CSV de pagos generado.');
+    };
+}
 
 

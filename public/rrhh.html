@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Gestion | LinGroup</title>
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="manifest" href="./manifest.webmanifest">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./css/app.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -30,7 +32,9 @@
 
 <body class="bg-slate-50 flex h-screen overflow-hidden text-slate-600">
 
-    <aside class="w-[300px] bg-[#0f172a] text-slate-300 flex flex-col flex-shrink-0 shadow-2xl relative z-50">
+    <div id="sidebarOverlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"></div>
+
+    <aside id="sidebar" aria-label="Menu lateral" class="w-[300px] bg-[#0f172a] text-slate-300 flex flex-col flex-shrink-0 shadow-2xl z-50 fixed lg:static inset-y-0 left-0 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out">
         
         <div class="h-24 flex items-center px-8 border-b border-slate-800/50 bg-[#0f172a]">
             <div class="flex items-center gap-3">
@@ -41,7 +45,7 @@
                     <h1 class="font-black text-white text-lg tracking-tight">LIN GROUP</h1>
                     <div class="flex items-center gap-2 mt-0.5">
                         <p class="text-[9px] font-bold text-blue-500 uppercase tracking-[2px]">Gestion Humana</p>
-                        <span class="text-[9px] font-black text-slate-300 bg-slate-800 px-2 py-0.5 rounded-full">v<span data-system-version>5.7.0</span></span>
+                        <button type="button" onclick="openAboutModal()" title="Acerca de / Creditos" class="text-[9px] font-black text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded-full transition-colors">v<span data-system-version>5.7.0</span></button>
                     </div>
                 </div>
             </div>
@@ -96,12 +100,17 @@
 
     <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-slate-50">
         
-        <header class="h-20 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center justify-between px-8 z-40 sticky top-0">
-            <div>
-                <h2 id="pageTitle" class="text-2xl font-black text-slate-800 tracking-tight">Panel Principal</h2>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
-                    <i class="ph-fill ph-calendar-blank"></i> <span id="currentDate">Hoy</span>
-                </p>
+        <header class="h-20 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center justify-between gap-3 px-4 sm:px-8 z-40 sticky top-0">
+            <div class="flex items-center gap-3 min-w-0">
+                <button type="button" onclick="toggleSidebar()" aria-label="Abrir o cerrar menu" class="lg:hidden w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 transition-colors">
+                    <i class="ph-bold ph-list text-xl"></i>
+                </button>
+                <div class="min-w-0">
+                    <h2 id="pageTitle" class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight truncate">Panel Principal</h2>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
+                        <i class="ph-fill ph-calendar-blank"></i> <span id="currentDate">Hoy</span>
+                    </p>
+                </div>
             </div>
             
             <div class="flex items-center gap-4">
@@ -112,7 +121,7 @@
             </div>
         </header>
 
-        <section id="mainContent" class="flex-1 overflow-y-auto p-8 custom-scroll relative">
+        <section id="mainContent" class="flex-1 overflow-y-auto p-4 sm:p-8 custom-scroll relative">
             <div class="flex flex-col items-center justify-center h-full text-slate-300">
                 <i class="ph-duotone ph-spinner animate-spin text-5xl mb-4 text-blue-500"></i>
                 <p class="font-black text-sm uppercase tracking-widest">Iniciando Aplicacion...</p>
@@ -122,20 +131,47 @@
         <footer class="border-t border-slate-200 bg-white/90 backdrop-blur px-8 py-4">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 text-xs font-bold text-slate-500">
                 <p>Sistema RRHH v<span data-system-version>5.7.0</span></p>
-                <p>Todos los derechos reservados 2026 a OTELAX DEV DEL GRUPO OTELAX HOLDING <a href="https://www.dev.otelax.com" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">www.dev.otelax.com</a></p>
+                <p>© 2026 Giuliano Emanuel Maria Catella Riveros (Otelax Dev) · Licencia MIT (atribución obligatoria) · <a href="https://www.dev.otelax.com" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">www.dev.otelax.com</a></p>
             </div>
         </footer>
 
     </main>
 
-    <div id="toast" class="fixed top-8 right-8 z-[100] transform -translate-y-40 opacity-0 transition-all duration-500 ease-out pointer-events-none">
-        <div class="bg-white border-l-[6px] border-blue-600 shadow-2xl rounded-2xl p-5 flex items-center gap-4 min-w-[320px] relative overflow-hidden">
-            <div class="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
-                <i class="ph-fill ph-info text-blue-600 text-xl"></i>
+    <!-- Acerca de / Creditos -->
+    <div id="aboutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[120] flex items-center justify-center p-4" onclick="closeAboutModal(event)">
+        <div class="bg-white w-full max-w-md rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden animate-fade-in-up" onclick="event.stopPropagation()">
+            <div class="bg-[#0f172a] p-6 text-center">
+                <div class="w-14 h-14 mx-auto bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><i class="ph-fill ph-polygon text-3xl"></i></div>
+                <h3 class="mt-3 font-black text-white text-lg tracking-tight">LIN GROUP</h3>
+                <p class="text-[10px] font-bold text-blue-400 uppercase tracking-[2px]">Gestion Humana</p>
             </div>
-            <div>
+            <div class="p-6 space-y-3 text-sm">
+                <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Sistema</span><span class="font-black text-slate-800">Sistema RRHH</span></div>
+                <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Version</span><span class="font-black text-slate-800" data-system-version>5.7.0</span></div>
+                <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Creador</span><span class="font-black text-slate-800 text-right">Giuliano E. M. Catella Riveros</span></div>
+                <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Desarrollo</span><span class="font-black text-slate-800">Otelax Dev</span></div>
+                <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Licencia</span><span class="font-black text-slate-800">MIT (atribucion)</span></div>
+            </div>
+            <div class="px-6 pb-6">
+                <p class="text-[11px] text-slate-500 font-medium bg-slate-50 border border-slate-100 rounded-2xl p-3">
+                    © 2026 Giuliano Emanuel Maria Catella Riveros (Otelax Dev). Licencia MIT: uso permitido mencionando al creador.
+                </p>
+                <div class="flex gap-3 mt-4">
+                    <a href="https://www.dev.otelax.com" target="_blank" rel="noopener noreferrer" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 rounded-2xl transition-colors text-[11px] uppercase tracking-wider">www.dev.otelax.com</a>
+                    <button type="button" onclick="closeAboutModal()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-2xl transition-colors text-[11px] uppercase tracking-wider">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden fixed top-6 right-4 sm:right-8 z-[100]" role="status" aria-live="polite">
+        <div id="toastCard" class="bg-white border-l-[6px] shadow-2xl rounded-2xl p-4 sm:p-5 flex items-center gap-4 w-[min(92vw,360px)]">
+            <div id="toastIconWrap" class="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i id="toastIcon" class="ph-fill ph-info text-blue-600 text-xl"></i>
+            </div>
+            <div class="min-w-0">
                 <h4 id="toastTitle" class="font-black text-slate-800 text-xs uppercase tracking-wide">NOTIFICACION</h4>
-                <p id="toastMessage" class="text-[11px] text-slate-500 font-bold mt-0.5">Accion completada.</p>
+                <p id="toastMessage" class="text-[11px] text-slate-500 font-bold mt-0.5 break-words">Accion completada.</p>
             </div>
         </div>
     </div>

@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
     <title>Solicitud de Vales | Lin Group</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./css/app.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
@@ -60,12 +63,15 @@
 
         <div class="bg-slate-50 p-4 text-center border-t border-slate-100">
             <p class="text-[10px] text-slate-400 font-bold uppercase">SISTEMA LIN GROUP v5.7.0</p>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">© 2026 Giuliano E. M. Catella Riveros (Otelax Dev) · Licencia MIT (atribucion obligatoria)</p>
         </div>
     </div>
 
     <script type="module">
-        import { collection, getDocs, addDoc, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { collection, getDocs, addDoc, query, serverTimestamp } from "./js/db.js";
         import { db } from "./js/firebase-config.js";
+        import { uiToast } from "./js/ui.js";
+        import { getValeAvailable, isValeLimitExhausted } from "./js/vales-cupo.js";
 
         const select = document.getElementById("employeeSelect");
         const amountInput = document.getElementById("amountInput");
@@ -125,14 +131,9 @@
             if (!emp) return;
 
             const salary = Number(emp.salary) || 0;
-            const limit40 = salary * 0.4;
-            const used = valesMonth
-                .filter((vale) => vale.employeeId === empId && vale.status !== "Rechazado")
-                .reduce((sum, vale) => sum + Number(vale.approvedAmount || vale.amount || 0), 0);
+            currentAvailable = getValeAvailable(salary, valesMonth, empId);
 
-            currentAvailable = limit40 - used;
-
-            if (currentAvailable <= 1000) {
+            if (isValeLimitExhausted(currentAvailable)) {
                 info.innerHTML = "YA HAS UTILIZADO TODO TU CUPO DE VALES";
                 info.className = "text-xs font-black mt-2 text-center h-4 text-red-500 animate-pulse";
                 amountInput.disabled = true;
@@ -161,17 +162,17 @@
             const selectedEmployee = employees.find((employee) => employee.id === empId);
 
             if (!empId || amount <= 0) {
-                alert("Verifique los datos.");
+                uiToast('Verifique los datos.', 'warning', 'Datos incompletos');
                 return;
             }
 
             if (!selectedEmployee || !selectedEmployee.fullName) {
-                alert("No se pudo resolver el funcionario seleccionado.");
+                uiToast('No se pudo resolver el funcionario seleccionado.', 'error', 'Error');
                 return;
             }
 
             if (amount > currentAvailable) {
-                alert("Lo sentimos.\n\nEl monto solicitado excede su limite disponible actual.\nPor favor intente con un monto menor.");
+                uiToast('El monto solicitado excede su limite disponible actual. Intente con un monto menor.', 'warning', 'Limite excedido');
                 return;
             }
 
@@ -193,11 +194,11 @@
                     createdAtLocal: new Date().toISOString()
                 });
 
-                alert("Solicitud enviada correctamente.\nEspere la aprobacion de RRHH.");
-                window.location.reload();
+                uiToast('Solicitud enviada correctamente. Espere la aprobacion de RRHH.', 'success', 'Enviado');
+                setTimeout(() => window.location.reload(), 1400);
             } catch (error) {
                 console.error(error);
-                alert("Error al enviar solicitud.");
+                uiToast('Error al enviar solicitud.', 'error', 'Error');
                 btn.disabled = false;
                 btn.innerText = "REINTENTAR";
             }

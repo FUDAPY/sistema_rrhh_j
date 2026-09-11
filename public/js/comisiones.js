@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp } from "./db.js";
 import { db } from "./firebase-config.js";
 
 export function initComisionesGlobalListeners(toastCb) {}

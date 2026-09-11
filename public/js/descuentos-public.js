@@ -1,5 +1,7 @@
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "./db.js";
 import { db } from "./firebase-config.js";
+import { requireAuth } from "./auth-guard.js";
+import { uiToast } from "./ui.js";
 
 // Elementos
 const searchInput = document.getElementById('searchEmp');
@@ -89,9 +91,9 @@ form.addEventListener('submit', async (e) => {
     const rawAmount = amountInput.value.replace(/\./g, ''); 
     const amount = Number(rawAmount);
 
-    if (!empId) return alert("Selecciona un funcionario de la lista.");
-    if (!amount || amount <= 0) return alert("Ingresa un monto válido.");
-    if (!selectedDate) return alert("Selecciona una fecha válida.");
+    if (!empId) return uiToast('Selecciona un funcionario de la lista.', 'warning', 'Falta seleccionar');
+    if (!amount || amount <= 0) return uiToast('Ingresa un monto válido.', 'warning', 'Monto inválido');
+    if (!selectedDate) return uiToast('Selecciona una fecha válida.', 'warning', 'Fecha inválida');
 
     const originalBtn = btnSubmit.innerHTML;
     btnSubmit.disabled = true;
@@ -112,12 +114,16 @@ form.addEventListener('submit', async (e) => {
 
     } catch (error) {
         console.error("Error:", error);
-        alert("Error al guardar.");
+        uiToast('Error al guardar.', 'error', 'Error');
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = originalBtn;
     }
 });
 
-// Iniciar
-loadEmployees();
-setDefaultDate();
+// Iniciar (protegido: solo ADMIN / RRHH autenticados)
+requireAuth({ roles: ["ADMIN", "RRHH"] })
+    .then(() => {
+        loadEmployees();
+        setDefaultDate();
+    })
+    .catch(() => { /* requireAuth redirige al login o muestra acceso denegado */ });

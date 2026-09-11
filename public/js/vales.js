@@ -1,9 +1,13 @@
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from "./db.js";
 import { db } from "./firebase-config.js";
+import { uiConfirm } from "./ui.js";
+import * as Export from "./export.js";
 import { printTicket } from "./print-service.js";
+import { getValeAvailable, getValeLimit, isValeLimitExhausted, formatGs } from "./vales-cupo.js";
 
 let latestEmployees = [];
 let latestVales = [];
+let latestValesCreate = [];
 
 function formatGsInputValue(value) {
     const digits = String(value || '').replace(/\D/g, '');
@@ -57,8 +61,9 @@ function formatValeDate(value) {
 // ==========================================
 // 1. VISTA: CREAR VALE (ADMIN)
 // ==========================================
-export function getViewCreateVale(employees) {
+export function getViewCreateVale(employees, vales = []) {
     latestEmployees = employees;
+    latestValesCreate = vales;
     const options = employees.map(e => `<option value="${e.id}">${e.fullName}</option>`).join('');
     return `
         <div class="max-w-2xl mx-auto bg-white p-10 rounded-[40px] shadow-xl border border-amber-50 fade-in">
@@ -77,6 +82,7 @@ export function getViewCreateVale(employees) {
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Monto</label>
                     <input type="text" id="valeAmount" placeholder="0" class="w-full border-2 border-slate-100 p-4 rounded-2xl bg-slate-50 font-black text-amber-500 text-lg outline-none">
+                    <p id="valeCupoInfo" class="text-xs font-black mt-2 h-4"></p>
                 </div>
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Motivo</label>
@@ -101,6 +107,23 @@ export function setupCreateValeLogic(toastCb) {
         });
     }
 
+    // Info de cupo (40%) usando la MISMA logica compartida que la solicitud publica
+    const empSelect = document.getElementById('valeEmpSelect');
+    const cupoInfo = document.getElementById('valeCupoInfo');
+    if (empSelect && cupoInfo) {
+        empSelect.addEventListener('change', () => {
+            const emp = latestEmployees.find(e => e.id === empSelect.value);
+            if (!emp) { cupoInfo.textContent = ''; return; }
+            const limit = getValeLimit(emp.salary);
+            const available = getValeAvailable(emp.salary, latestValesCreate, emp.id);
+            const exhausted = isValeLimitExhausted(available);
+            cupoInfo.textContent = exhausted
+                ? `Cupo agotado este mes (limite Gs. ${formatGs(limit)})`
+                : `Disponible este mes: Gs. ${formatGs(available)} de Gs. ${formatGs(limit)}`;
+            cupoInfo.className = `text-xs font-black mt-2 h-4 ${exhausted ? 'text-rose-600' : 'text-emerald-600'}`;
+        });
+    }
+
     const form = document.getElementById('createValeForm');
     if (!form) return;
 
@@ -116,6 +139,11 @@ export function setupCreateValeLogic(toastCb) {
 
         if (!empId || !amount) return toastCb("Error", "Complete los datos");
         if (!snapshot.name) return toastCb("Error", "No se pudo resolver el funcionario del vale.");
+
+        const available = selectedEmployee ? getValeAvailable(selectedEmployee.salary, latestValesCreate, empId) : 0;
+        if (selectedEmployee && amount > available) {
+            toastCb("Aviso", `El monto supera el cupo disponible del mes (Gs. ${formatGs(available)}). Se registrara igual.`);
+        }
 
         try {
             const isRRHH = currentUserRole === 'RRHH';
@@ -166,7 +194,10 @@ export function getViewListVales(vales, employees) {
     });
 
     let html = `<div class="max-w-6xl mx-auto space-y-8 fade-in pb-20">
-        <h3 class="text-2xl font-black text-slate-800">Historial de Vales</h3>
+        <div class="flex items-center justify-between gap-3">
+            <h3 class="text-2xl font-black text-slate-800">Historial de Vales</h3>
+            ${Export.exportButton('exportValesCsv()')}
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
 
     if (Object.keys(grouped).length === 0) {
@@ -323,6 +354,20 @@ export function getViewApproveVales(vales, employees) {
 // 4. FUNCIONES GLOBALES DE ACCION
 // ==========================================
 export function initValesGlobalListeners(toastCb) {
+    window.exportValesCsv = () => {
+        const empName = (id) => latestEmployees.find(e => e.id === id)?.fullName || id;
+        const columns = [
+            { label: 'Funcionario', value: (v) => v.employeeName || empName(v.employeeId) },
+            { label: 'Fecha', value: (v) => formatValeDate(v.createdAt) },
+            { label: 'Sucursal', value: (v) => v.employeeBranch || '' },
+            { label: 'Solicitado', value: (v) => Number(v.requestedAmount || v.amount || 0) },
+            { label: 'Aprobado', value: (v) => Number(v.approvedAmount || v.amount || 0) },
+            { label: 'Motivo', value: (v) => v.reason || '' },
+            { label: 'Estado', value: (v) => v.status || '' },
+        ];
+        Export.downloadCsv(`vales-${Export.dateStamp()}`, columns, latestVales.filter(v => !v.deleted));
+        toastCb('Exportado', 'CSV de vales generado.');
+    };
     window.formatValeApprovalAmount = (input) => {
         if (!input) return;
         input.value = formatGsInputValue(input.value);
@@ -345,7 +390,8 @@ export function initValesGlobalListeners(toastCb) {
                 return;
             }
 
-            if (!confirm(`¿Aprobar e imprimir ticket por Gs. ${approvedAmount.toLocaleString('es-PY')}?`)) return;
+            const confirmado = await uiConfirm({ title: 'Aprobar vale', message: `¿Aprobar e imprimir ticket por Gs. ${approvedAmount.toLocaleString('es-PY')}?`, tone: 'info', confirmText: 'Aprobar' });
+            if (!confirmado) return;
 
             const employee = latestEmployees.find(emp => emp.id === vale.employeeId);
             const snapshot = getEmployeeValeSnapshot(employee);
@@ -387,7 +433,8 @@ export function initValesGlobalListeners(toastCb) {
     };
 
     window.rejectVale = async (id) => {
-        if (!confirm('¿Rechazar solicitud?')) return;
+        const confirmado = await uiConfirm({ title: 'Rechazar vale', message: '¿Rechazar solicitud?', tone: 'danger', confirmText: 'Rechazar' });
+        if (!confirmado) return;
         try {
             await updateDoc(doc(db, "vales", id), { status: 'Rechazado' });
             toastCb("Rechazado", "La solicitud ha sido rechazada.");

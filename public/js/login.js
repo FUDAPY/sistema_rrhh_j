@@ -1,18 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAm4lN1zh4tl-0284k3H9bK0hufKQqyVzA",
-  authDomain: "sys-rrhh-lingroup.firebaseapp.com",
-  projectId: "sys-rrhh-lingroup",
-  storageBucket: "sys-rrhh-lingroup.firebasestorage.app",
-  messagingSenderId: "661987541058",
-  appId: "1:661987541058:web:f1271079c5193a6b252ddb",
-  measurementId: "G-1NXSKLV6X9"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+import { auth, signInWithEmailAndPassword, onAuthStateChanged } from "./auth.js";
 
 const loginForm = document.getElementById('login-form');
 const loginBtn = document.getElementById('login-btn');

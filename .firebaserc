@@ -1,8 +1,0 @@
-{
-  "projects": {
-    "default": "sys-rrhh-lingroup",
-    "sys-rrhh-lingroup": "sys-rrhh-lingroup"
-  },
-  "targets": {},
-  "etags": {}
-}

@@ -1,0 +1,49 @@
+{
+  "name": "sistema-rrhh-lingroup",
+  "private": true,
+  "version": "5.7.0",
+  "type": "module",
+  "description": "Sistema de Recursos Humanos LinGroup - Gestion Humana",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server/index.js",
+    "start:prod": "npm run build && node server/index.js",
+    "server": "node server/index.js",
+    "inventory": "node scripts/firestore-inventory.mjs",
+    "migrate": "node scripts/migrate-firestore-to-mongo.mjs",
+    "probe": "node scripts/mongo-probe.mjs",
+    "smoke": "node scripts/smoke-test.mjs",
+    "user:create": "node scripts/create-user.mjs",
+    "assets:optimize": "node scripts/optimize-assets.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write \"public/**/*.{js,html,css}\"",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "autoprefixer": "^10.5.6",
+    "eslint": "^10.10.0",
+    "firebase-admin": "^14.4.0",
+    "globals": "^17.12.0",
+    "postcss": "^8.5.28",
+    "prettier": "^3.9.6",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  }
+}

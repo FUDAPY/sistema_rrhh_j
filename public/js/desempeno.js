@@ -1,6 +1,7 @@
 // public/js/desempeno.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "./db.js";
 import { db } from "./firebase-config.js";
+import { uiConfirm } from "./ui.js";
 
 let _toast = null;
 
@@ -10,7 +11,8 @@ let _toast = null;
 export function initDesempenoListeners(toastCb) {
     _toast = toastCb;
     window.deleteEvaluacion = async (id) => {
-        if(!confirm("¿Eliminar esta evaluación?")) return;
+        const confirmado = await uiConfirm({ title: 'Eliminar evaluacion', message: '¿Eliminar esta evaluación?', tone: 'danger', confirmText: 'Eliminar' });
+        if (!confirmado) return;
         try {
             await deleteDoc(doc(db, "evaluaciones", id));
             if(_toast) _toast("Eliminado", "Evaluación borrada del historial.");

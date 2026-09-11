@@ -12,11 +12,8 @@
 import { 
     onAuthStateChanged, 
     signOut,
-    createUserWithEmailAndPassword as createSecondaryAuthUser,
-    getAuth as getSecondaryAuth
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-import { initializeApp as initSecondaryApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    createUser
+} from "./auth.js";
 
 import { 
     collection, 
@@ -29,9 +26,11 @@ import {
     addDoc, 
     serverTimestamp,
     where 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "./db.js";
 
-import { auth, db, firebaseConfig } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
+import { uiConfirm, uiPrompt } from "./ui.js";
+import * as Export from "./export.js";
 import { printTicket } from "./print-service.js";
 
 import * as ValesModule from "./vales.js"; 
@@ -41,14 +40,9 @@ import * as ProveedoresModule from "./proveedores.js";
 import * as AusenciasModule from "./ausencias.js"; 
 import * as DesempenoModule from "./desempeno.js"; 
 
-const secondaryApp = initSecondaryApp(firebaseConfig, "SecondaryAuthApp");
-const secondaryAuth = getSecondaryAuth(secondaryApp); 
-
 const VERSION = "5.7.0";
 
 const LISTA_SUCURSALES = [
-    "MR LIN RESTAURANTE", 
-    "ESTUDIO JURIDICO LIN GROUP", 
     "MR LIN RESTAURANTE", 
     "ESTUDIO JURIDICO LIN GROUP", 
     "EMPENOS CHICOLIN", 
@@ -74,7 +68,9 @@ let ausenciasData = [];
 let desempenoData = []; 
 let salaryHistoryData = [];
 let usersData = [];
-let currentUserRole = 'ADMIN';
+let currentUserRole = null;
+let usersLoaded = false;
+let appBootstrapped = false;
 let sucursalesData = []; // NUEVO: Estado global para sucursales
 let currentView = 'dashboard';
 let rrhhModalLocks = 0;
@@ -82,18 +78,55 @@ let rrhhModalLocks = 0;
 const RRHH_ALLOWED_VIEWS = [
     'dashboard',
     'rrhh_new',
-    'salario_pend',
-    'vales_new',
-    'salario_individual',
+    'rrhh_list',
+    'rrhh_liquidaciones',
     'admin_desc',
-    'admin_ausencia_new'
+    'admin_suc',
+    'admin_ausencia_new',
+    'admin_ausencia_list',
+    'salario_pend',
+    'salario_individual',
+    'salario_ind'
 ];
+
+function denyAccess() {
+    console.warn("Acceso denegado: el usuario no tiene un rol asignado en la coleccion 'users'.");
+    document.body.innerHTML = `
+        <div style="font-family:Inter,Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;padding:24px;">
+            <div style="background:#fff;border-radius:28px;padding:40px;max-width:460px;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,.35);">
+                <div style="font-size:48px;">&#128274;</div>
+                <h1 style="font-size:20px;font-weight:900;color:#0f172a;margin:16px 0 8px;">Acceso restringido</h1>
+                <p style="color:#64748b;font-size:14px;font-weight:600;margin:0 0 24px;">
+                    Tu usuario no tiene un rol asignado en el sistema. Solicita al administrador que registre tu correo en la gestion de usuarios.
+                </p>
+                <button id="denyLogout" style="background:#dc2626;color:#fff;border:0;font-weight:800;padding:14px 28px;border-radius:16px;cursor:pointer;">Cerrar sesion</button>
+            </div>
+        </div>`;
+    const denyLogout = document.getElementById('denyLogout');
+    if (denyLogout) {
+        denyLogout.addEventListener('click', () => {
+            signOut(auth).then(() => { window.location.href = 'index.html'; });
+        });
+    }
+}
 
 function syncUserRole() {
     if (!auth.currentUser) return;
+
+    // Esperamos a que la coleccion 'users' este cargada para resolver el rol.
+    // Sin rol explicito NO se concede acceso (antes se asumia ADMIN por defecto).
+    if (!usersLoaded) return;
+
     const email = (auth.currentUser.email || '').toLowerCase();
     const userDoc = usersData.find(u => u.email && u.email.toLowerCase() === email);
-    currentUserRole = userDoc ? (userDoc.role || 'ADMIN') : 'ADMIN';
+    const resolvedRole = userDoc ? userDoc.role : null;
+
+    if (!resolvedRole) {
+        denyAccess();
+        return;
+    }
+
+    currentUserRole = resolvedRole;
 
     ValesModule.setValesUserRole(currentUserRole);
     SalariosModule.setSalariosUserRole(currentUserRole);
@@ -109,6 +142,11 @@ function syncUserRole() {
     }
 
     renderMenu();
+
+    if (!appBootstrapped) {
+        appBootstrapped = true;
+        renderContent();
+    }
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -124,8 +162,9 @@ onAuthStateChanged(auth, (user) => {
 
 const btnLogout = document.getElementById('btnLogout');
 if(btnLogout) {
-    btnLogout.addEventListener('click', () => {
-        if(confirm("Seguro que desea cerrar sesion?")) {
+    btnLogout.addEventListener('click', async () => {
+        const confirmado = await uiConfirm({ title: 'Cerrar sesion', message: 'Seguro que desea cerrar sesion?', tone: 'warning', confirmText: 'Cerrar sesion' });
+        if (confirmado) {
             signOut(auth).then(() => {
                 console.log("Sesion cerrada.");
                 window.location.href = "index.html";
@@ -137,11 +176,12 @@ if(btnLogout) {
 function initApp() {
     console.info("%cInicializando aplicacion LINGROUP", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
     syncVersionBadges();
-    renderMenu();
+    if (currentUserRole) renderMenu();
 
     onSnapshot(collection(db, 'users'), (snapshot) => {
         usersData = [];
         snapshot.forEach(doc => usersData.push({ id: doc.id, ...doc.data() }));
+        usersLoaded = true;
         syncUserRole();
         refreshCurrentViewIf('admin_users');
     });
@@ -223,7 +263,7 @@ function initApp() {
     DesempenoModule.initDesempenoListeners(showToast);
 
     initRRHHGlobalListeners();
-    renderContent(); 
+    if (currentUserRole) renderContent(); 
 }
 
 function refreshCurrentViewIf(sectionKey) {
@@ -389,7 +429,8 @@ function initRRHHGlobalListeners() {
         const confirmStr = `PELIGRO: Esta a punto de eliminar a ${name}.\n\n` + 
                         `Esto no borrara sus pagos historicos pero el funcionario ya no aparecera en las planillas.\n` + 
                         `Desea continuar?`;
-        if(!confirm(confirmStr)) return;
+        const confirmado = await uiConfirm({ title: 'Eliminar funcionario', message: confirmStr, tone: 'danger', confirmText: 'Eliminar' });
+        if (!confirmado) return;
         
         try {
             await deleteDoc(doc(db, "employees", id));
@@ -397,6 +438,24 @@ function initRRHHGlobalListeners() {
         } catch (error) {
             console.error(error);
             showToast('Error', 'Fallo al intentar eliminar el registro.');
+        }
+    };
+
+    // Dar de baja (RRHH)
+    window.deactivateEmployee = async (id, name) => {
+        const emp = employeesData.find(e => e.id === id);
+        const today = new Date().toISOString().split('T')[0];
+        const endDate = await uiPrompt({ title: 'Dar de baja', message: `Fecha de baja para ${name} (AAAA-MM-DD):`, defaultValue: today, inputType: 'date', confirmText: 'Dar de baja' });
+        if (!endDate) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return showToast('Error', 'Formato de fecha invalido (AAAA-MM-DD).');
+        if (emp?.startDate && endDate < emp.startDate) return showToast('Error', 'La fecha de baja no puede ser anterior al ingreso.');
+
+        try {
+            await updateDoc(doc(db, 'employees', id), { status: 'INACTIVO', endDate });
+            showToast('Exito', `${name} dado de baja.`);
+        } catch (error) {
+            console.error(error);
+            showToast('Error', 'No se pudo dar de baja al funcionario.');
         }
     };
 
@@ -502,12 +561,44 @@ const menuItemsAdmin = [
 const menuItemsRRHH = [
     { id: 'dashboard', label: 'Resumen Global', icon: 'ph-chart-pie-slice', type: 'single' },
     { id: 'rrhh_new', label: 'Nuevo Funcionario', icon: 'ph-user-plus', type: 'single' },
-    { id: 'salario_pend', label: 'Liquidar Pendientes', icon: 'ph-money', type: 'single' },
-    { id: 'vales_new', label: 'Emitir Vales', icon: 'ph-ticket', type: 'single' },
-    { id: 'salario_individual', label: 'Pago Individual', icon: 'ph-coins', type: 'single' },
+    { id: 'rrhh_list', label: 'Lista de Personal', icon: 'ph-users-three', type: 'single' },
+    { id: 'rrhh_liquidaciones', label: 'Calendario de Liquidaciones', icon: 'ph-calendar-check', type: 'single' },
     { id: 'admin_desc', label: 'Descuentos (-)', icon: 'ph-minus-circle', type: 'single' },
-    { id: 'admin_ausencia_new', label: 'Reportar Ausencia', icon: 'ph-user-minus', type: 'single' }
+    { id: 'admin_suc', label: 'Sucursales / Horarios', icon: 'ph-storefront', type: 'single' },
+    { id: 'admin_ausencia_new', label: 'Reportar Ausencia', icon: 'ph-user-minus', type: 'single' },
+    { id: 'admin_ausencia_list', label: 'Historial Ausencias', icon: 'ph-clipboard-text', type: 'single' },
+    { label: 'Nomina y Pagos', icon: 'ph-coins', type: 'group', children: [
+        { id: 'salario_pend', label: 'Liquidar Pendientes' },
+        { id: 'salario_individual', label: 'Pago Individual' },
+        { id: 'salario_ind', label: 'Historial de Pagos' }
+    ]}
 ];
+
+// Menu lateral (visible en movil).
+window.toggleSidebar = (forceOpen) => {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+
+    const isOpen = !sidebar.classList.contains('-translate-x-full');
+    const open = typeof forceOpen === 'boolean' ? forceOpen : !isOpen;
+
+    sidebar.classList.toggle('-translate-x-full', !open);
+    sidebar.classList.toggle('translate-x-0', open);
+    if (overlay) overlay.classList.toggle('hidden', !open);
+};
+
+// Acerca de / creditos del sistema.
+window.openAboutModal = () => {
+    const modal = document.getElementById('aboutModal');
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.closeAboutModal = (event) => {
+    if (event && event.target && event.target.id !== 'aboutModal') return;
+    const modal = document.getElementById('aboutModal');
+    if (modal) modal.classList.add('hidden');
+};
 
 function renderMenu() {
     const nav = document.getElementById('sidebarMenu');
@@ -551,6 +642,7 @@ function navigateTo(id, label) {
     renderMenu();
     renderContent();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.innerWidth < 1024 && typeof window.toggleSidebar === 'function') window.toggleSidebar(false);
 }
 
 function renderContent() {
@@ -573,7 +665,7 @@ function renderContent() {
             main.innerHTML = viewRRHHLiquidationsCalendar();
             break;
         case 'vales_new': 
-            main.innerHTML = ValesModule.getViewCreateVale(employeesData); 
+            main.innerHTML = ValesModule.getViewCreateVale(employeesData, valesData); 
             ValesModule.setupCreateValeLogic(showToast); 
             break;
         case 'vales_list': 
@@ -595,6 +687,7 @@ function renderContent() {
             break;
         case 'salario_ind': 
             main.innerHTML = SalariosModule.getViewHistorySalaries(salariesData, employeesData); 
+            SalariosModule.setupHistorySalaries();
             break;
         case 'salario_auditoria':
             main.innerHTML = SalariosModule.getViewPaymentAudit(salariesData, employeesData);
@@ -610,6 +703,11 @@ function renderContent() {
         case 'admin_suc': 
             main.innerHTML = viewAdminSucursales();
             break;
+        case 'admin_prov_new': 
+            main.innerHTML = ProveedoresModule.getViewCreateProveedor(); 
+            ProveedoresModule.setupCreateProveedorLogic(showToast); 
+            break;
+        case 'admin_prov_list': 
             main.innerHTML = ProveedoresModule.getViewListProveedores(proveedoresData); 
             break;
         case 'admin_ausencia_new': 
@@ -625,6 +723,12 @@ function renderContent() {
             break;
         case 'admin_desempeno_list': 
             main.innerHTML = DesempenoModule.getViewListDesempeno(desempenoData, employeesData); 
+            break;
+        case 'admin_users': 
+            main.innerHTML = viewAdminUsers(); 
+            break;
+        case 'admin_aprobacion_pagos': 
+            main.innerHTML = viewAdminAprobacionPagos(); 
             break;
         case 'birthdays': 
             main.innerHTML = viewBirthdays(); 
@@ -861,11 +965,144 @@ function viewRRHHLiquidationsCalendar() {
         </div>`;
 }
 
+// Dashboard: helpers de graficos
+
+function resolveRecordDate(record) {
+    if (!record) return null;
+    if (record.createdAt?.toDate) return record.createdAt.toDate();
+    if (record.createdAt instanceof Date) return record.createdAt;
+    if (record.createdAtLocal) {
+        const parsed = new Date(record.createdAtLocal);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    if (typeof record.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(record.date)) {
+        const [y, m, d] = record.date.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    return null;
+}
+
+function getRecordMonth(record) {
+    const month = Number(record?.month);
+    const year = Number(record?.year);
+    if (month >= 1 && month <= 12 && year > 2000) return { year, month };
+    const date = resolveRecordDate(record);
+    return date ? { year: date.getFullYear(), month: date.getMonth() + 1 } : null;
+}
+
+function getMonthBuckets(count = 6) {
+    const now = new Date();
+    const buckets = [];
+    for (let i = count - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        buckets.push({
+            year: d.getFullYear(),
+            month: d.getMonth() + 1,
+            label: d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', ''),
+        });
+    }
+    return buckets;
+}
+
+function getMonthlyTotals(buckets) {
+    const totals = new Map(buckets.map((b) => [`${b.year}-${b.month}`, 0]));
+    salariesData.forEach((sal) => {
+        if (sal.deleted) return;
+        const key = getRecordMonth(sal);
+        if (!key) return;
+        const k = `${key.year}-${key.month}`;
+        if (totals.has(k)) totals.set(k, totals.get(k) + (Number(sal.netPay) || 0));
+    });
+    return buckets.map((b) => ({ ...b, total: totals.get(`${b.year}-${b.month}`) || 0 }));
+}
+
+function getActiveByBranch() {
+    const counts = {};
+    employeesData
+        .filter((e) => e.status !== 'INACTIVO')
+        .forEach((e) => {
+            const branch = e.branch || 'Sin sucursal';
+            counts[branch] = (counts[branch] || 0) + 1;
+        });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function renderMonthlyBars(series) {
+    const max = Math.max(...series.map((s) => s.total), 1);
+    return series
+        .map((s) => {
+            const pct = Math.max(2, Math.round((s.total / max) * 100));
+            return `
+            <div class="flex-1 flex flex-col items-center justify-end gap-2 h-full group">
+                <span class="text-[9px] font-black text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">${Math.round(s.total / 1000).toLocaleString()}k</span>
+                <div class="w-full max-w-[44px] bg-gradient-to-t from-indigo-500 to-indigo-400 rounded-t-xl group-hover:from-indigo-600 group-hover:to-indigo-500 transition-all" style="height:${pct}%"></div>
+                <span class="text-[10px] font-black text-slate-400 uppercase">${s.label}</span>
+            </div>`;
+        })
+        .join('');
+}
+
+function renderBranchBars(entries) {
+    if (!entries.length) return '<p class="text-xs font-bold text-slate-400">Sin datos de sucursales.</p>';
+    const max = Math.max(...entries.map((e) => e[1]), 1);
+    return entries
+        .map(
+            ([name, count]) => `
+        <div class="mb-3 last:mb-0">
+            <div class="flex items-center justify-between mb-1 gap-2">
+                <span class="text-[11px] font-black text-slate-600 truncate" title="${name}">${name}</span>
+                <span class="text-[11px] font-black text-slate-800">${count}</span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all" style="width:${Math.round((count / max) * 100)}%"></div>
+            </div>
+        </div>`
+        )
+        .join('');
+}
+
 function viewDashboard() {
     const activeEmployeesCount = employeesData.filter(e => e.status !== 'INACTIVO').length;
     const totalValesPend = valesData.filter(v => v.status === 'Pendiente').reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const totalComsMes = comisionesData.filter(c => c.status === 'Aprobado').reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const totalPagado = salariesData.reduce((acc, curr) => acc + (curr.netPay || 0), 0);
+
+    // --- Graficos y metricas ---
+    const monthlySeries = getMonthlyTotals(getMonthBuckets(6));
+    const monthlyBars = renderMonthlyBars(monthlySeries);
+    const promedioMes = Math.round(monthlySeries.reduce((acc, s) => acc + s.total, 0) / (monthlySeries.length || 1));
+    const branchBars = renderBranchBars(getActiveByBranch());
+
+    const nowRef = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    const isCurrentMonth = (record) => {
+        const key = getRecordMonth(record);
+        return Boolean(key && key.year === nowRef.year && key.month === nowRef.month);
+    };
+
+    const valesPorAprobar = valesData.filter(v => v.status === 'Pendiente').length;
+    const descuentosMes = descuentosData
+        .filter(d => !d.deleted && isCurrentMonth(d))
+        .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    const ausenciasMes = ausenciasData.filter(a => isCurrentMonth(a)).length;
+    const cumpleanosMes = employeesData.filter(e => {
+        if (e.status === 'INACTIVO' || !e.dob) return false;
+        return Number(String(e.dob).split('-')[1]) === nowRef.month;
+    }).length;
+
+    const miniCards = [
+        { label: 'Vales por aprobar', value: String(valesPorAprobar), icon: 'ph-ticket', tint: 'text-amber-600 bg-amber-50' },
+        { label: 'Descuentos del mes', value: 'Gs. ' + descuentosMes.toLocaleString(), icon: 'ph-minus-circle', tint: 'text-rose-600 bg-rose-50' },
+        { label: 'Ausencias del mes', value: String(ausenciasMes), icon: 'ph-user-minus', tint: 'text-orange-600 bg-orange-50' },
+        { label: 'Cumpleanos del mes', value: String(cumpleanosMes), icon: 'ph-cake', tint: 'text-pink-600 bg-pink-50' },
+    ];
+    const miniMetrics = miniCards.map(c => `
+        <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${c.tint}"><i class="ph-fill ${c.icon} text-lg"></i></div>
+            <div class="min-w-0">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">${c.label}</p>
+                <p class="font-black text-slate-800 text-lg leading-tight truncate">${c.value}</p>
+            </div>
+        </div>`).join('');
 
     return `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 fade-in mb-8">
@@ -915,6 +1152,32 @@ function viewDashboard() {
                     <h3 class="text-3xl font-black text-slate-800">Gs. ${totalPagado.toLocaleString()}</h3>
                     <p class="text-slate-400 text-xs font-bold mt-1">Total Egresado Historico</p>
                 </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 fade-in">
+            ${miniMetrics}
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 fade-in">
+            <div class="lg:col-span-2 bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                <div class="flex items-start justify-between mb-6 gap-4">
+                    <div>
+                        <h3 class="font-black text-slate-800 text-lg">Egresos por mes</h3>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Salarios liquidados · ultimos 6 meses</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-[9px] font-black text-slate-400 uppercase">Promedio</p>
+                        <p class="font-black text-indigo-600 text-sm">Gs. ${promedioMes.toLocaleString()}</p>
+                    </div>
+                </div>
+                <div class="flex items-end justify-between gap-2 sm:gap-3 h-44">${monthlyBars}</div>
+            </div>
+
+            <div class="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                <h3 class="font-black text-slate-800 text-lg">Personal por sucursal</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 mb-5">Colaboradores activos</p>
+                ${branchBars}
             </div>
         </div>
 
@@ -1232,6 +1495,7 @@ function viewEmployeeList() {
                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Lista de Personal</p>
                     <p id="personalCount" class="font-black text-slate-800 text-lg leading-tight">${auditedEmployees.length} colaboradores</p>
                 </div>
+                ${Export.exportButton('exportEmployeesCsv()')}
             </div>
         </div>`;
 
@@ -1255,13 +1519,17 @@ function viewEmployeeList() {
                     ${issues.map(issue => `<p class="text-[11px] font-bold">${issue.detail}</p>`).join('')}
                 </div>
             </div>` : '';
+        const isRRHH = currentUserRole === 'RRHH';
 
         html += `
             <div data-personal-card data-search="${[e.fullName, e.dni, e.position, e.branch].filter(Boolean).join(' ').toLowerCase().replace(/["'<>&]/g, ' ')}" class="rounded-[32px] shadow-lg shadow-slate-200/50 border overflow-hidden group relative transition-all duration-300 ${cardStyle}">
                 <div class="absolute top-4 right-4 flex flex-col gap-2 z-20 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                    ${isRRHH
+                        ? (!isInactive ? `<button onclick="deactivateEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-rose-600 p-2.5 rounded-xl shadow-lg hover:bg-rose-600 hover:text-white transition-all" title="Dar de baja"><i class="ph-bold ph-user-minus"></i></button>` : '')
+                        : `
                     <button onclick="editEmployee('${e.id}')" class="bg-white/90 backdrop-blur text-indigo-600 p-2.5 rounded-xl shadow-lg hover:bg-indigo-600 hover:text-white transition-all"><i class="ph-bold ph-pencil-simple"></i></button>
                     ${!isInactive ? `<button onclick="openSalaryIncreaseModal('${e.id}')" class="bg-white/90 backdrop-blur text-emerald-600 p-2.5 rounded-xl shadow-lg hover:bg-emerald-600 hover:text-white transition-all" title="Aumentar salario"><i class="ph-bold ph-arrow-fat-up"></i></button>` : ''}
-                    <button onclick="deleteEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-red-500 p-2.5 rounded-xl shadow-lg hover:bg-red-500 hover:text-white transition-all"><i class="ph-bold ph-trash"></i></button>
+                    <button onclick="deleteEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-red-500 p-2.5 rounded-xl shadow-lg hover:bg-red-500 hover:text-white transition-all"><i class="ph-bold ph-trash"></i></button>`}
                 </div>
 
                 <div class="h-48 bg-slate-100 relative overflow-hidden">
@@ -1480,7 +1748,8 @@ window.editSucursal = (id) => {
 };
 
 window.deleteSucursal = async (id, name) => {
-    if(confirm(`Seguro que desea eliminar la sucursal ${name}?`)) {
+    const confirmado = await uiConfirm({ title: 'Eliminar sucursal', message: `Seguro que desea eliminar la sucursal ${name}?`, tone: 'danger', confirmText: 'Eliminar' });
+    if (confirmado) {
         await deleteDoc(doc(db, "sucursales", id));
         showToast("Eliminado", "Sucursal borrada del sistema.");
     }
@@ -1541,6 +1810,7 @@ function viewAdminDescuentos() {
                 <button onclick="saveAdminDescuento()" class="bg-red-600 text-white w-full py-4 rounded-2xl font-black shadow-xl shadow-red-200 hover:bg-red-700 transition-all flex items-center justify-center gap-3">
                     <i class="ph-bold ph-check-circle"></i> APLICAR DEDUCCION
                 </button>
+                ${Export.exportButton('exportDescuentosCsv()')}
             </div>
             <p class="text-[10px] text-slate-400 mt-4 italic text-center">* Los descuentos con fecha manual afectaran la liquidacion de dicho periodo automaticamente.</p>
         </div>
@@ -1693,6 +1963,36 @@ window.saveAdminDescuento = async () => {
     } finally {
         btn.disabled = false; btn.innerText = oldText;
     }
+};
+
+// Exportaciones CSV
+window.exportEmployeesCsv = () => {
+    const columns = [
+        { label: 'Nombre', value: (e) => e.fullName || '' },
+        { label: 'CI', value: (e) => e.dni || '' },
+        { label: 'Cargo', value: (e) => e.position || '' },
+        { label: 'Sucursal', value: (e) => e.branch || '' },
+        { label: 'Ingreso', value: (e) => e.startDate || '' },
+        { label: 'Estado', value: (e) => e.status || 'ACTIVO' },
+        { label: 'Baja', value: (e) => e.endDate || '' },
+        { label: 'Salario vigente', value: (e) => SalariosModule.getEffectiveSalaryAmountForDate(e, new Date()) },
+        { label: 'Telefono', value: (e) => e.phone || '' },
+    ];
+    Export.downloadCsv(`personal-${Export.dateStamp()}`, columns, employeesData);
+    showToast('Exportado', 'CSV de personal generado.', 'success');
+};
+
+window.exportDescuentosCsv = () => {
+    const empName = (id) => employeesData.find(e => e.id === id)?.fullName || id;
+    const columns = [
+        { label: 'Funcionario', value: (d) => empName(d.employeeId) },
+        { label: 'Fecha', value: (d) => d.date || '' },
+        { label: 'Motivo', value: (d) => d.reason || '' },
+        { label: 'Monto', value: (d) => Number(d.amount) || 0 },
+        { label: 'Estado', value: (d) => d.status || '' },
+    ];
+    Export.downloadCsv(`descuentos-${Export.dateStamp()}`, columns, descuentosData.filter(d => !d.deleted));
+    showToast('Exportado', 'CSV de descuentos generado.', 'success');
 };
 
 /**
@@ -1848,7 +2148,23 @@ function viewBirthdays() {
         </div>`;
 }
 
-function showToast(title, msg) {
+const TOAST_STYLES = {
+    success: { border: 'border-emerald-500', wrap: 'bg-emerald-50', icon: 'ph-fill ph-check-circle text-emerald-600' },
+    error: { border: 'border-rose-500', wrap: 'bg-rose-50', icon: 'ph-fill ph-x-circle text-rose-600' },
+    warning: { border: 'border-amber-500', wrap: 'bg-amber-50', icon: 'ph-fill ph-warning-circle text-amber-600' },
+    info: { border: 'border-blue-600', wrap: 'bg-blue-50', icon: 'ph-fill ph-info text-blue-600' },
+};
+
+// Deduce la severidad segun el titulo del toast.
+function inferToastType(title = '') {
+    const text = String(title).toLowerCase();
+    if (/(error|fallo|no se pudo|invalido|denegad|rechaz)/.test(text)) return 'error';
+    if (/(aviso|advertencia|atencion|pendiente)/.test(text)) return 'warning';
+    if (/(exito|exitoso|guardad|registrad|actualizad|eliminad|completad|aprobad|exportad|ok)/.test(text)) return 'success';
+    return 'info';
+}
+
+function showToast(title, msg, type) {
     const t = document.getElementById('toast');
     if(!t) return;
     
@@ -1858,12 +2174,29 @@ function showToast(title, msg) {
     titleEl.innerText = title;
     msgEl.innerText = msg;
     
-    t.classList.remove('-translate-y-40', 'opacity-0', 'pointer-events-none');
-    t.classList.add('translate-y-0', 'opacity-100');
+    const resolvedType = type || inferToastType(title);
+    const palette = TOAST_STYLES[resolvedType] || TOAST_STYLES.info;
+    const card = document.getElementById('toastCard');
+    const iconWrap = document.getElementById('toastIconWrap');
+    const icon = document.getElementById('toastIcon');
+
+    if (card) {
+        card.className = 'bg-white border-l-[6px] shadow-2xl rounded-2xl p-4 sm:p-5 flex items-center gap-4 w-[min(92vw,360px)]';
+        card.classList.add(palette.border);
+    }
+    if (iconWrap) iconWrap.className = `w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${palette.wrap}`;
+    if (icon) icon.className = `${palette.icon} text-xl`;
+
+    t.classList.remove('hidden');
+    if (card) {
+        card.classList.remove('animate-toast-in');
+        void card.offsetWidth;
+        card.classList.add('animate-toast-in');
+    }
     
-    setTimeout(() => {
-        t.classList.add('-translate-y-40', 'opacity-0', 'pointer-events-none');
-        t.classList.remove('translate-y-0', 'opacity-100');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+        t.classList.add('hidden');
     }, CONFIG_UI.toastDuration);
 }
 
@@ -1872,6 +2205,9 @@ function showToast(title, msg) {
 // ==========================================
 function viewAdminUsers() {
     if (currentUserRole !== 'ADMIN') return '<div class="p-8 text-center text-red-500 font-bold">Acceso Denegado</div>';
+
+    const isAdmin = currentUserRole === 'ADMIN';
+    const visibleUsers = usersData;
 
     return `
     <div class="max-w-6xl mx-auto space-y-8 fade-in pb-20">
@@ -1893,14 +2229,13 @@ function viewAdminUsers() {
                             <th class="p-5">Usuario / Nombre</th>
                             <th class="p-5">Correo</th>
                             <th class="p-5">Rol</th>
-                            <th class="p-5">Contrasena Ref</th>
                             <th class="p-5 text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs font-bold text-slate-600">
-                        ${usersData.length === 0 ? `
-                            <tr><td colspan="5" class="p-8 text-center text-slate-400">No hay usuarios adicionales cargados en la base de datos.</td></tr>
-                        ` : usersData.map(u => `
+                        ${visibleUsers.length === 0 ? `
+                            <tr><td colspan="4" class="p-8 text-center text-slate-400">No hay usuarios adicionales cargados en la base de datos.</td></tr>
+                        ` : visibleUsers.map(u => `
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="p-5 font-black text-slate-800 flex items-center gap-3">
                                     <div class="w-9 h-9 rounded-xl ${u.role === 'RRHH' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold">
@@ -1914,7 +2249,6 @@ function viewAdminUsers() {
                                         ${u.role || 'ADMIN'}
                                     </span>
                                 </td>
-                                <td class="p-5 text-slate-400 font-mono">${u.password ? '••••••••' : 'S/D'}</td>
                                 <td class="p-5 text-right space-x-2">
                                     <button onclick="openEditUserModal('${u.id}')" class="p-2 rounded-xl bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition-colors">
                                         <i class="ph-bold ph-pencil-simple text-sm"></i>
@@ -1955,7 +2289,7 @@ function viewAdminUsers() {
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Rol de Acceso</label>
                     <select id="userRoleInput" class="w-full border-2 border-slate-100 p-3.5 rounded-2xl bg-slate-50 font-bold text-slate-700 outline-none focus:border-blue-500">
                         <option value="RRHH">RRHH (Acceso Limitado)</option>
-                        <option value="ADMIN">ADMIN (Panel Completo)</option>
+                        ${isAdmin ? '<option value="ADMIN">ADMIN (Panel Completo)</option>' : ''}
                     </select>
                 </div>
                 <button type="submit" id="btnSubmitUser" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all mt-4">CREAR USUARIO</button>
@@ -1975,10 +2309,6 @@ function viewAdminUsers() {
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nombre Completo</label>
                     <input type="text" id="editUserFullName" required class="w-full border-2 border-slate-100 p-3.5 rounded-2xl bg-slate-50 font-bold text-slate-700 outline-none focus:border-blue-500">
-                </div>
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nueva Contrasena (Opcional)</label>
-                    <input type="password" id="editUserPassword" minlength="6" placeholder="******" class="w-full border-2 border-slate-100 p-3.5 rounded-2xl bg-slate-50 font-bold text-slate-700 outline-none focus:border-blue-500">
                 </div>
                 <button type="submit" id="btnSubmitEditUser" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all mt-4">GUARDAR CAMBIOS</button>
             </form>
@@ -2082,7 +2412,6 @@ window.openEditUserModal = (id) => {
     if (!u) return;
     document.getElementById('editUserId').value = u.id;
     document.getElementById('editUserFullName').value = u.fullName || '';
-    document.getElementById('editUserPassword').value = '';
     document.getElementById('userEditModal')?.classList.remove('hidden');
 };
 window.closeUserEditModal = () => {
@@ -2099,17 +2428,9 @@ window.saveNewUser = async (e) => {
 
     btn.disabled = true; btn.innerText = "CREANDO...";
     try {
-        const userCred = await createSecondaryAuthUser(secondaryAuth, email, password);
-        await addDoc(collection(db, 'users'), {
-            uid: userCred.user.uid,
-            email,
-            fullName,
-            role,
-            password,
-            createdAt: serverTimestamp()
-        });
+        await createUser({ email, password, fullName, role });
         showToast("Exito", `Usuario ${email} creado con rol ${role}`);
-        closeUserCreateModal();
+        window.closeUserCreateModal();
         document.getElementById('createUserForm').reset();
     } catch (err) {
         console.error(err);
@@ -2123,16 +2444,14 @@ window.saveEditUser = async (e) => {
     e.preventDefault();
     const id = document.getElementById('editUserId').value;
     const fullName = document.getElementById('editUserFullName').value.trim();
-    const password = document.getElementById('editUserPassword').value;
     const btn = document.getElementById('btnSubmitEditUser');
 
     btn.disabled = true; btn.innerText = "GUARDANDO...";
     try {
         const patch = { fullName, updatedAt: serverTimestamp() };
-        if (password) patch.password = password;
         await updateDoc(doc(db, 'users', id), patch);
         showToast("Exito", "Usuario modificado correctamente");
-        closeUserEditModal();
+        window.closeUserEditModal();
     } catch (err) {
         console.error(err);
         showToast("Error", "Error al actualizar usuario");
@@ -2142,7 +2461,8 @@ window.saveEditUser = async (e) => {
 };
 
 window.deleteUser = async (id, email) => {
-    if (!confirm(`Eliminar usuario ${email}?`)) return;
+    const confirmado = await uiConfirm({ title: 'Eliminar usuario', message: `Eliminar usuario ${email}?`, tone: 'danger', confirmText: 'Eliminar' });
+    if (!confirmado) return;
     try {
         await deleteDoc(doc(db, 'users', id));
         showToast("Eliminado", "Usuario removido");

@@ -1,6 +1,7 @@
 // public/js/ausencias.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "./db.js";
 import { db } from "./firebase-config.js";
+import { uiConfirm } from "./ui.js";
 
 let _toast = null;
 
@@ -11,7 +12,8 @@ export function initAusenciasListeners(toastCb) {
     _toast = toastCb;
 
     window.deleteAusencia = async (id) => {
-        if(!confirm("¿Eliminar este registro del sistema? (Atención: Deberá reversar manualmente los descuentos si ya liquidó el salario).")) return;
+        const confirmado = await uiConfirm({ title: 'Eliminar registro', message: '¿Eliminar este registro del sistema? (Atención: deberá reversar manualmente los descuentos si ya liquidó el salario).', tone: 'danger', confirmText: 'Eliminar' });
+        if (!confirmado) return;
         try {
             await deleteDoc(doc(db, "ausencias", id));
             if(_toast) _toast("Eliminado", "Registro borrado exitosamente.");
@@ -114,7 +116,8 @@ export function setupCreateAusenciaLogic(toastCb) {
                 multa = 20000;
             }
 
-            if(!confirm(`Resumen Llegada Tardía:\n- Horario Sucursal: ${branchEntrada}\n- Llegó: ${horaLlegada}\n- Minutos tarde: ${minutosTarde} min.\n\n>> MULTA A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar y aplicar descuento?`)) return;
+            const confirmado = await uiConfirm({ title: 'Confirmar tardanza', message: `Resumen Llegada Tardía:\n- Horario Sucursal: ${branchEntrada}\n- Llegó: ${horaLlegada}\n- Minutos tarde: ${minutosTarde} min.\n\n>> MULTA A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar y aplicar descuento?`, tone: 'warning', confirmText: 'Aplicar descuento' });
+            if (!confirmado) return;
 
             registro.date = fecha;
             registro.llegadaFija = branchEntrada;
@@ -144,7 +147,8 @@ export function setupCreateAusenciaLogic(toastCb) {
             // Solo descontamos plata si es Falta Injustificada
             if (type === 'Falta Injustificada') {
                 multa = Math.floor((empSalary / 30) * diffDays);
-                if(!confirm(`Resumen de Falta:\n- Días ausente: ${diffDays}\n- Salario Diario: Gs. ${Math.floor(empSalary/30).toLocaleString()}\n\n>> DESCUENTO A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar?`)) return;
+                const confirmado = await uiConfirm({ title: 'Confirmar falta', message: `Resumen de Falta:\n- Días ausente: ${diffDays}\n- Salario Diario: Gs. ${Math.floor(empSalary / 30).toLocaleString()}\n\n>> DESCUENTO A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar?`, tone: 'warning', confirmText: 'Aplicar descuento' });
+                if (!confirmado) return;
             }
 
             registro.startDate = start;
