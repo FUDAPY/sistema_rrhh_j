@@ -1,5 +1,5 @@
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from './db.js';
-import { db } from './firebase-config.js';
+import { db, auth } from './firebase-config.js';
 import { uiConfirm } from './ui.js';
 import * as Export from './export.js';
 import { printTicket } from './print-service.js';
@@ -15,11 +15,12 @@ function formatGsInputValue(value) {
 }
 
 function getEmployeeValeSnapshot(emp) {
-    if (!emp) return { name: '', branch: '', position: '' };
+    if (!emp) return { name: '', branch: '', position: '', dni: '' };
     return {
         name: emp.fullName || emp.employeeName || '',
         branch: emp.branch || emp.employeeBranch || emp.sucursal || '',
         position: emp.position || emp.employeePosition || emp.role || '',
+        dni: emp.dni || emp.ci || emp.documento || emp.cedula || '',
     };
 }
 
@@ -43,13 +44,22 @@ function buildValeCode(employeeId, baseDate, prefix = 'VAL') {
     return `${prefix}-${datePart}-${localStamp.slice(8, 14)}-${employeePart}`;
 }
 
+// Nombre del funcionario que efectua el pago (se guarda para las reimpresiones).
+function getCurrentPayerName() {
+    const sessionUser = auth.currentUser;
+    if (!sessionUser) return '';
+    return String(sessionUser.displayName || sessionUser.email || '').trim();
+}
+
 function buildValeAuditFields(emp, valeDate, sourceModule, paymentCode) {
     const snapshot = getEmployeeValeSnapshot(emp);
     return {
         employeeName: snapshot.name,
         employeeNameUpper: snapshot.name ? snapshot.name.toUpperCase() : '',
+        employeeDni: snapshot.dni,
         employeeBranch: snapshot.branch,
         employeePosition: snapshot.position,
+        payerName: getCurrentPayerName(),
         valeDateKey: valeDate || '',
         sourceModule,
         paymentCode,
@@ -177,12 +187,15 @@ export function setupCreateValeLogic(toastCb) {
             printTicket({
                 sucursal: snapshot.branch || 'MATRIZ',
                 employeeName: snapshot.name,
+                employeeDni: snapshot.dni,
                 employeePosition: snapshot.position,
+                payerName: getCurrentPayerName(),
                 paymentCode,
                 type: 'VALE / ADELANTO',
                 detail: reason || 'Adelanto de Salario',
                 amount,
-                doubleTicket: isRRHH,
+                // Siempre dos ejemplares: Administracion y Funcionario.
+                doubleTicket: true,
             }).catch((err) => console.error('Error al imprimir vale:', err));
         } catch (error) {
             console.error(error);
@@ -453,11 +466,15 @@ export function initValesGlobalListeners(toastCb) {
             await printTicket({
                 sucursal: snapshot.branch || 'MATRIZ',
                 employeeName: snapshot.name,
+                employeeDni: snapshot.dni,
                 employeePosition: snapshot.position,
+                payerName: getCurrentPayerName(),
                 paymentCode,
                 type: 'VALE / ADELANTO',
                 detail,
                 amount: approvedAmount,
+                // Siempre dos ejemplares: Administracion y Funcionario.
+                doubleTicket: true,
             });
 
             toastCb('Aprobado', 'Vale aprobado y ticket impreso.');

@@ -14,6 +14,13 @@ let salaryHistoryData = [];
 let bodyScrollLocks = 0;
 let currentUserRole = 'ADMIN';
 
+// Documentos de pago vistos en el historial de movimientos: permiten reimprimir
+// su ticket sin volver a consultar la base de datos.
+const movementDocs = new Map();
+const registerMovementDoc = (source, doc) => {
+    if (source && doc && doc.id) movementDocs.set(`${source}:${doc.id}`, doc);
+};
+
 export function setSalariosUserRole(role) {
     if (role) currentUserRole = role;
 }
@@ -215,7 +222,7 @@ function isEmployeeRelevantForPeriod(emp, year, month) {
 
 function getEmployeeTicketSnapshot(emp) {
     if (!emp) {
-        return { name: '', branch: '', position: '' };
+        return { name: '', branch: '', position: '', dni: '' };
     }
 
     const pickText = (...values) => {
@@ -229,7 +236,16 @@ function getEmployeeTicketSnapshot(emp) {
         name: pickText(emp.fullName, emp.employeeName, emp.name),
         branch: pickText(emp.branch, emp.employeeBranch, emp.sucursal),
         position: pickText(emp.position, emp.employeePosition, emp.role),
+        dni: pickText(emp.dni, emp.ci, emp.documento, emp.cedula),
     };
+}
+
+// Nombre del funcionario que efectua el pago. Se guarda en el pago para que la
+// reimpresion del ticket muestre quien entrego el dinero.
+function getCurrentPayerName() {
+    const sessionUser = auth.currentUser;
+    if (!sessionUser) return '';
+    return String(sessionUser.displayName || sessionUser.email || '').trim();
 }
 
 function buildSalaryAuditFields(emp, paymentDate, month, year, sourceModule) {
@@ -237,8 +253,10 @@ function buildSalaryAuditFields(emp, paymentDate, month, year, sourceModule) {
     return {
         employeeName: ticketEmployee.name,
         employeeNameUpper: ticketEmployee.name ? ticketEmployee.name.toUpperCase() : '',
+        employeeDni: ticketEmployee.dni,
         employeeBranch: ticketEmployee.branch,
         employeePosition: ticketEmployee.position,
+        payerName: getCurrentPayerName(),
         employeeStatusSnapshot: emp?.status || 'ACTIVO',
         paymentDateKey: paymentDate || '',
         periodKey: `${year}-${String(month).padStart(2, '0')}`,
@@ -650,24 +668,30 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
         const historyItems = [
             ...data.valesList
                 .filter((item) => !isSoftDeleted(item))
-                .map((v) => ({
-                    id: v.id,
-                    source: 'vales',
-                    type: 'VALE',
-                    amount: parseMonto(v.approvedAmount ?? v.amount),
-                    detail: v.reason || 'Solicitud de Vale',
-                    dateObj: getMovementDate(v),
-                })),
+                .map((v) => {
+                    registerMovementDoc('vales', v);
+                    return {
+                        id: v.id,
+                        source: 'vales',
+                        type: 'VALE',
+                        amount: parseMonto(v.approvedAmount ?? v.amount),
+                        detail: v.reason || 'Solicitud de Vale',
+                        dateObj: getMovementDate(v),
+                    };
+                }),
             ...data.pagosList
                 .filter((item) => !isSoftDeleted(item))
-                .map((p) => ({
-                    id: p.id,
-                    source: 'salaries',
-                    type: p.type === 'INDIVIDUAL' ? 'ADELANTO' : 'LIQUIDACION',
-                    amount: parseMonto(p.netPay),
-                    detail: p.details || 'Pago de Salario',
-                    dateObj: getMovementDate(p),
-                })),
+                .map((p) => {
+                    registerMovementDoc('salaries', p);
+                    return {
+                        id: p.id,
+                        source: 'salaries',
+                        type: p.type === 'INDIVIDUAL' ? 'ADELANTO' : 'LIQUIDACION',
+                        amount: parseMonto(p.netPay),
+                        detail: p.details || 'Pago de Salario',
+                        dateObj: getMovementDate(p),
+                    };
+                }),
             ...data.descuentosList
                 .filter((item) => !isSoftDeleted(item))
                 .map((d) => ({
@@ -730,6 +754,15 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="font-black text-sm ${amountColor}">Gs. ${parseMonto(item.amount).toLocaleString()}</span>
+                            ${
+                                item.source === 'vales' || item.source === 'salaries'
+                                    ? `
+                                <button type="button" onclick="reimprimirTicketMovimiento('${item.source}','${item.id}')" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 transition-colors flex items-center justify-center" title="Reimprimir los dos tickets (Administracion y Funcionario)">
+                                    <i class="ph-bold ph-printer text-sm"></i>
+                                </button>
+                            `
+                                    : ''
+                            }
                             ${
                                 canManageMovements
                                     ? `
@@ -1088,14 +1121,17 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                     printTicket({
                         sucursal: ticketEmployee.branch,
                         employeeName: ticketEmployee.name,
+                        employeeDni: ticketEmployee.dni,
                         employeePosition: ticketEmployee.position,
+                        payerName: getCurrentPayerName(),
                         paymentCode,
                         type: emp.status === 'INACTIVO' ? 'LIQUIDACION FINAL' : 'LIQUIDACION DE SUELDO',
                         detail: observation
                             ? `Periodo: ${selectedMonth}/${selectedYear} | Obs: ${observation}`
                             : `Periodo: ${selectedMonth}/${selectedYear}`,
                         amount: amountRaw,
-                        doubleTicket: isRRHH,
+                        // Siempre dos ejemplares: Administracion y Funcionario.
+                        doubleTicket: true,
                     }).catch((err) => console.error('Error al imprimir ticket:', err));
                 } catch (e) {
                     console.error(e);
@@ -1529,12 +1565,15 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             printTicket({
                 sucursal: ticketEmployee.branch,
                 employeeName: ticketEmployee.name,
+                employeeDni: ticketEmployee.dni,
                 employeePosition: ticketEmployee.position,
+                payerName: getCurrentPayerName(),
                 paymentCode,
                 type: 'ADELANTO / PAGO',
                 detail: ticketDetail,
                 amount: montoPago,
-                doubleTicket: isRRHH,
+                // Siempre dos ejemplares: Administracion y Funcionario.
+                doubleTicket: true,
             }).catch((err) => console.error('Error al imprimir ticket:', err));
 
             toastCb('Exito', 'Pago registrado correctamente. El sistema ha actualizado los saldos.');
@@ -1649,9 +1688,14 @@ export function getViewHistorySalaries(salaries, employees) {
                         </div>
                     </div>
                 </div>
-                <div class="text-right w-full md:w-auto border-t md:border-t-0 border-slate-50 pt-3 md:pt-0 pl-0 md:pl-6 flex justify-between md:block items-center">
-                    <span class="md:hidden text-xs font-bold text-slate-400 uppercase">${pay.type}</span>
-                    <div><p class="font-black text-2xl text-slate-800">Gs. ${amount}</p><p class="text-[10px] text-slate-400 font-bold uppercase text-right">${pay.details || (isInd ? 'Adelanto' : 'Liquidacion')}</p></div>
+                <div class="text-right w-full md:w-auto border-t md:border-t-0 border-slate-50 pt-3 md:pt-0 pl-0 md:pl-6 flex flex-col gap-2">
+                    <div class="w-full flex md:block justify-between items-center">
+                        <span class="md:hidden text-xs font-bold text-slate-400 uppercase">${pay.type}</span>
+                        <div><p class="font-black text-2xl text-slate-800">Gs. ${amount}</p><p class="text-[10px] text-slate-400 font-bold uppercase md:text-right">${pay.details || (isInd ? 'Adelanto' : 'Liquidacion')}</p></div>
+                    </div>
+                    <button type="button" onclick="reimprimirTicketHistorial('${pay.id}')" title="Reimprimir los dos tickets (Administracion y Funcionario)" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-indigo-100 text-slate-700 font-black text-[10px] uppercase tracking-wider transition-colors">
+                        <i class="ph-bold ph-printer"></i> Reimprimir Ticket
+                    </button>
                 </div>
             </div>`;
     });
@@ -1928,5 +1972,66 @@ export function initSalariosGlobalListeners(toastCb) {
             historySalaries.filter((s) => !s.deleted)
         );
         toastCb('Exportado', 'CSV de pagos generado.');
+    };
+
+    // Reimpresion desde el Historial de Pagos: vuelve a emitir los DOS
+    // ejemplares (Administracion y Funcionario) con la fecha/hora original.
+    window.reimprimirTicketHistorial = (id) => {
+        const pay = historySalaries.find((item) => item.id === id);
+        if (!pay) {
+            toastCb('Error', 'No se encontro el pago seleccionado.');
+            return;
+        }
+
+        const emp = historyEmployees.find((e) => e.id === pay.employeeId);
+        const paymentCode =
+            pay.paymentCode ||
+            pay.paymentGroupId ||
+            `LEGACY-${String(pay.id || '')
+                .slice(-6)
+                .toUpperCase()}`;
+
+        printTicket({
+            sucursal: pay.employeeBranch || emp?.branch || 'MATRIZ',
+            employeeName: pay.employeeName || emp?.fullName || '',
+            employeeDni: pay.employeeDni || emp?.dni || '',
+            employeePosition: pay.employeePosition || emp?.position || '',
+            payerName: pay.payerName || '',
+            paymentCode,
+            type:
+                pay.type === 'INDIVIDUAL'
+                    ? 'ADELANTO / PAGO'
+                    : pay.type === 'LIQUIDACION FINAL'
+                      ? 'LIQUIDACION FINAL'
+                      : 'LIQUIDACION DE SUELDO',
+            detail: pay.details || '',
+            amount: Number(pay.netPay) || 0,
+            dateTime: pay.createdAtLocal || pay.createdAt || pay.date,
+            doubleTicket: true,
+        }).catch((error) => console.error('Error al reimprimir ticket:', error));
+    };
+
+    // Reimpresion desde el "Historial de Movimientos" del modulo de liquidacion.
+    window.reimprimirTicketMovimiento = (source, id) => {
+        const doc = movementDocs.get(`${source}:${id}`);
+        if (!doc) {
+            toastCb('Error', 'No se encontro el movimiento seleccionado.');
+            return;
+        }
+
+        const isVale = source === 'vales';
+        printTicket({
+            sucursal: doc.employeeBranch || 'MATRIZ',
+            employeeName: doc.employeeName || '',
+            employeeDni: doc.employeeDni || '',
+            employeePosition: doc.employeePosition || '',
+            payerName: doc.payerName || '',
+            paymentCode: doc.paymentCode || (isVale ? 'VALE' : 'PAGO'),
+            type: isVale ? 'VALE / ADELANTO' : doc.type === 'INDIVIDUAL' ? 'ADELANTO / PAGO' : 'LIQUIDACION DE SUELDO',
+            detail: doc.reason || doc.details || '',
+            amount: Number(doc.approvedAmount ?? doc.amount ?? doc.netPay) || 0,
+            dateTime: doc.createdAtLocal || doc.approvedAtLocal || doc.createdAt || doc.date,
+            doubleTicket: true,
+        }).catch((error) => console.error('Error al reimprimir ticket:', error));
     };
 }

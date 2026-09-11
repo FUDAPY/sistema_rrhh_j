@@ -32,9 +32,7 @@ import { printTicket } from './print-service.js';
 import * as ValesModule from './vales.js';
 import * as SalariosModule from './salarios.js';
 import * as ComisionesModule from './comisiones.js';
-import * as ProveedoresModule from './proveedores.js';
 import * as AusenciasModule from './ausencias.js';
-import * as DesempenoModule from './desempeno.js';
 
 const VERSION = '5.7.0';
 
@@ -59,9 +57,7 @@ let valesData = [];
 let comisionesData = [];
 let salariesData = [];
 let descuentosData = [];
-let proveedoresData = [];
 let ausenciasData = [];
-let desempenoData = [];
 let salaryHistoryData = [];
 let usersData = [];
 let currentUserRole = null;
@@ -111,16 +107,16 @@ function denyAccess() {
 function syncUserRole() {
     if (!auth.currentUser) return;
 
-    // Esperamos a que la coleccion 'users' este cargada para resolver el rol.
-    // Sin rol explicito NO se concede acceso (antes se asumia ADMIN por defecto).
-    if (!usersLoaded) return;
-
+    // La coleccion 'users' solo es legible por el rol ADMIN. Cuando esta
+    // disponible se toma como fuente de verdad; para los demas roles el rol se
+    // resuelve al instante desde la sesion firmada (JWT) sin esperar ningun
+    // snapshot, de modo que el menu y los modulos aparecen de inmediato.
     const email = (auth.currentUser.email || '').toLowerCase();
     const userDoc = usersData.find((u) => u.email && u.email.toLowerCase() === email);
-    const resolvedRole = userDoc ? userDoc.role : null;
+    const resolvedRole = usersLoaded ? (userDoc ? userDoc.role : null) : auth.currentUser.role || null;
 
     if (!resolvedRole) {
-        denyAccess();
+        if (usersLoaded) denyAccess();
         return;
     }
 
@@ -181,13 +177,17 @@ function initApp() {
     syncVersionBadges();
     if (currentUserRole) renderMenu();
 
-    onSnapshot(collection(db, 'users'), (snapshot) => {
-        usersData = [];
-        snapshot.forEach((doc) => usersData.push({ id: doc.id, ...doc.data() }));
-        usersLoaded = true;
-        syncUserRole();
-        refreshCurrentViewIf('admin_users');
-    });
+    // La coleccion 'users' es exclusiva del rol ADMIN: para RRHH el servidor
+    // responde 403 y el EventSource reintentaria en bucle ralentizando la carga.
+    if (currentUserRole === 'ADMIN') {
+        onSnapshot(collection(db, 'users'), (snapshot) => {
+            usersData = [];
+            snapshot.forEach((doc) => usersData.push({ id: doc.id, ...doc.data() }));
+            usersLoaded = true;
+            syncUserRole();
+            refreshCurrentViewIf('admin_users');
+        });
+    }
 
     onSnapshot(query(collection(db, 'sucursales'), orderBy('name')), (snapshot) => {
         sucursalesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -243,30 +243,16 @@ function initApp() {
         refreshCurrentViewIf('salario_individual');
     });
 
-    onSnapshot(collection(db, 'proveedores'), (snap) => {
-        proveedoresData = [];
-        snap.forEach((d) => proveedoresData.push({ id: d.id, ...d.data() }));
-        refreshCurrentViewIf('admin_prov');
-    });
-
     onSnapshot(collection(db, 'ausencias'), (snap) => {
         ausenciasData = [];
         snap.forEach((d) => ausenciasData.push({ id: d.id, ...d.data() }));
         refreshCurrentViewIf('admin_ausencia');
     });
 
-    onSnapshot(collection(db, 'evaluaciones'), (snap) => {
-        desempenoData = [];
-        snap.forEach((d) => desempenoData.push({ id: d.id, ...d.data() }));
-        refreshCurrentViewIf('admin_desempeno');
-    });
-
     ValesModule.initValesGlobalListeners(showToast);
     ComisionesModule.initComisionesGlobalListeners(showToast);
     SalariosModule.initSalariosGlobalListeners(showToast);
-    ProveedoresModule.initProveedoresListeners(showToast);
     AusenciasModule.initAusenciasListeners(showToast);
-    DesempenoModule.initDesempenoListeners(showToast);
 
     initRRHHGlobalListeners();
     if (currentUserRole) renderContent();
@@ -595,12 +581,8 @@ const menuItemsAdmin = [
         children: [
             { id: 'admin_desc', label: 'Descuentos (-)' },
             { id: 'admin_suc', label: 'Sucursales / Horarios' },
-            { id: 'admin_prov_new', label: 'Nuevo Proveedor' },
-            { id: 'admin_prov_list', label: 'Lista Proveedores' },
             { id: 'admin_ausencia_new', label: 'Reportar Ausencia' },
             { id: 'admin_ausencia_list', label: 'Historial Ausencias' },
-            { id: 'admin_desempeno_new', label: 'Nueva Evaluacion' },
-            { id: 'admin_desempeno_list', label: 'Historial Desempeno' },
         ],
     },
     {
@@ -782,26 +764,12 @@ function renderContent() {
         case 'admin_suc':
             main.innerHTML = viewAdminSucursales();
             break;
-        case 'admin_prov_new':
-            main.innerHTML = ProveedoresModule.getViewCreateProveedor();
-            ProveedoresModule.setupCreateProveedorLogic(showToast);
-            break;
-        case 'admin_prov_list':
-            main.innerHTML = ProveedoresModule.getViewListProveedores(proveedoresData);
-            break;
         case 'admin_ausencia_new':
             main.innerHTML = AusenciasModule.getViewCreateAusencia(employeesData);
             AusenciasModule.setupCreateAusenciaLogic(showToast);
             break;
         case 'admin_ausencia_list':
             main.innerHTML = AusenciasModule.getViewListAusencias(ausenciasData, employeesData);
-            break;
-        case 'admin_desempeno_new':
-            main.innerHTML = DesempenoModule.getViewCreateDesempeno(employeesData);
-            DesempenoModule.setupCreateDesempenoLogic(showToast);
-            break;
-        case 'admin_desempeno_list':
-            main.innerHTML = DesempenoModule.getViewListDesempeno(desempenoData, employeesData);
             break;
         case 'admin_users':
             main.innerHTML = viewAdminUsers();
@@ -2708,7 +2676,10 @@ window.reimprimirTicketRendicion = (collName, docId) => {
     printTicket({
         sucursal: item.employeeBranch || emp?.branch || 'MATRIZ',
         employeeName: item.employeeName || emp?.fullName || '',
+        employeeDni: item.employeeDni || emp?.dni || '',
         employeePosition: item.employeePosition || emp?.position || '',
+        payerName: item.payerName || '',
+        dateTime: item.createdAtLocal || item.approvedAtLocal || undefined,
         paymentCode: item.paymentCode || 'RENDICION',
         type:
             collName === 'vales'

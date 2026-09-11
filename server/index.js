@@ -25,6 +25,37 @@ import { evaluateAccess } from './access.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+// Detras de Caddy/Traefik (Dokploy) el TLS lo termina el proxy: confiar en
+// X-Forwarded-Proto/Host para saber si la peticion original fue HTTPS.
+app.set('trust proxy', true);
+
+// Fuerza HTTPS y publica HSTS. Evita el aviso "No es seguro" cuando se entra
+// por http:// aunque el certificado (Let's Encrypt) este activo en el dominio.
+app.use((req, res, next) => {
+    const forwardedProto = req.get('x-forwarded-proto');
+    const isHttps = req.secure || forwardedProto === 'https';
+
+    if (isHttps) {
+        res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    } else if (forwardedProto === 'http' && req.path !== '/api/health') {
+        return res.redirect(301, `https://${req.get('host')}${req.originalUrl}`);
+    }
+
+    next();
+});
+
+// Cabeceras de seguridad basicas.
+app.use((_req, res, next) => {
+    res.set({
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+        'X-DNS-Prefetch-Control': 'off',
+    });
+    next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(authOptional());

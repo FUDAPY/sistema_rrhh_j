@@ -40,7 +40,7 @@ descuentos, ausencias, comisiones y desempeño, con control de acceso por roles.
 **Propósito.** Centralizar la operación diaria de RRHH de LinGroup: alta/baja de funcionarios,
 solicitud y aprobación de vales con cupo del **40 % del salario**, liquidación mensual de sueldos
 (prorrateo por días hábiles, comisiones, vales y descuentos), control de asistencia (tardanzas y
-faltas con multa automática), evaluaciones de desempeño, proveedores y cumpleaños.
+faltas con multa automática), comprobantes de pago por duplicado y cumpleaños.
 
 **Problema que resuelve.** Reemplaza planillas dispersas y cálculos manuales por un flujo auditable:
 cada pago, descuento o ausencia queda registrado con autor, fecha y estado; los pagos que genera
@@ -115,8 +115,6 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 │   │   ├── vales.js        # Vistas de vales (admin) + cupo
 │   │   ├── ausencias.js    # Tardanzas/faltas + multa
 │   │   ├── comisiones.js   # Registro y reporte de comisiones
-│   │   ├── desempeno.js    # Evaluaciones
-│   │   ├── proveedores.js  # Proveedores
 │   │   ├── db.js           # Cliente de datos (API tipo Firestore sobre REST+SSE)
 │   │   ├── auth.js         # Auth JWT (API tipo Firebase Auth)
 │   │   ├── firebase-config.js  # Re-exporta db/auth
@@ -124,7 +122,7 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 │   │   ├── ui.js           # Toasts y modales
 │   │   ├── export.js       # Exportación CSV
 │   │   ├── vales-cupo.js   # Regla del 40 % (fuente única)
-│   │   ├── print-service.js# Ticket 80 mm
+│   │   ├── print-service.js # Ticket 80 mm (2 ejemplares: administracion y funcionario)
 │   │   └── login.js        # Login
 │   └── static/             # Copiado tal cual al build (manifest, iconos PWA)
 │
@@ -155,6 +153,15 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 - **Contraseñas** con **bcrypt** (10 rondas). `passwordHash` **nunca** se serializa al cliente.
 - **Roles**: `ADMIN` y `RRHH`. Se resuelve por el documento de `users`; sin rol → acceso denegado.
 - **Denegado por defecto** en `server/access.js`.
+- **Rol de sesión**: el menú y los módulos se resuelven con el rol firmado en el JWT
+  (`auth.currentUser.role`) sin esperar a la colección `users` (que es exclusiva de ADMIN); el panel
+  queda operativo al instante y no se abre un SSE que responda `403` en bucle.
+- **HTTPS**: `server/index.js` confía en `X-Forwarded-Proto` (`trust proxy`), responde **301** a las
+  peticiones `http://` y emite **HSTS** (`Strict-Transport-Security`) cuando la petición es HTTPS.
+  Es lo que elimina el aviso «No es seguro» en el navegador aunque el certificado Let's Encrypt ya
+  esté activo en el dominio.
+- **Cabeceras de seguridad**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
+  `Referrer-Policy: strict-origin-when-cross-origin` y `Permissions-Policy` restrictiva.
 - Secretos solo por variables de entorno; `.env` y `*-firebase-adminsdk-*.json` están en `.gitignore`.
 
 ### Permisos por rol (resumen)
@@ -177,6 +184,22 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 4. `salaryHistory` define el salario vigente del período.
 5. Ausencias con multa crean su registro en `descuentos`.
 6. **Todo pago creado por RRHH** se guarda con `estadoAprobacion: 'PENDIENTE_RENDICION'` y `creadoPorRol: 'RRHH'`.
+
+### Comprobantes de pago (tickets)
+
+`public/js/print-service.js` emite el comprobante en formato **80 mm** con **dos ejemplares en la misma
+impresión**: `EJEMPLAR ADMINISTRACION` y `EJEMPLAR FUNCIONARIO` (se controla con `doubleTicket`, que
+por defecto es `true`).
+
+Contenido: logo de la empresa, `LIN GROUP`, dirección `Av. Camilo Recalde c/ Av. Capitan Miranda` –
+`Microcentro de Ciudad del Este`, fecha y hora del pago, código, sucursal, **nombre del funcionario
+que efectuó el pago**, nombre del funcionario, **C.I.**, cargo, concepto, detalle, monto y las **dos
+firmas** (quien recibe y quien paga).
+
+- Se imprime al **liquidar salarios**, en el **pago individual** y al registrar/aprobar **vales**.
+- El **Historial de Pagos** y la vista de **Aprobación de Pagos** tienen el botón **Reimprimir
+  Ticket**, que vuelve a emitir los dos ejemplares con la fecha/hora original del movimiento.
+- `employeeDni` y `payerName` se guardan en `salaries`/`vales` para que la reimpresión sea fiel.
 
 ### Manejo de errores
 
@@ -308,6 +331,10 @@ Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": tr
 `ausencias`, `comisiones`, `descuentos`, `employees`, `evaluaciones`, `health`, `proveedores`,
 `salaries`, `salaryCarryovers`, `salaryHistory`, `sucursales`, `users`, `vales`.
 
+> Los módulos **Proveedores** y **Evaluaciones** se retiraron del panel (entradas de menú, vistas,
+> listeners en tiempo real y archivos `proveedores.js`/`desempeno.js`). Sus colecciones y permisos se
+> conservan por compatibilidad con los datos ya migrados.
+
 ---
 
 ## 9. Modelo de datos (MongoDB, base `rrhh`)
@@ -364,7 +391,8 @@ MONGO_INITDB_DATABASE=rrhh
 > En los logs debe verse `Sistema RRHH API escuchando en http://0.0.0.0:3000`.
 
 **Checklist post-deploy**: `/api/health` → `{ ok: true }`; login OK; todas las vistas del menú cargan;
-un alta/cambio se refleja sin recargar (SSE); HTTPS activo.
+un alta/cambio se refleja sin recargar (SSE); **HTTPS activo** y `http://` redirigiendo con **301** a
+`https://` (verificar que el proxy envíe `X-Forwarded-Proto`).
 
 **Rollback**: Dokploy guarda snapshots por deploy; los datos viven en MongoDB, no en el contenedor.
 
