@@ -29,15 +29,21 @@ const app = express();
 // X-Forwarded-Proto/Host para saber si la peticion original fue HTTPS.
 app.set('trust proxy', true);
 
-// Fuerza HTTPS y publica HSTS. Evita el aviso "No es seguro" cuando se entra
-// por http:// aunque el certificado (Let's Encrypt) este activo en el dominio.
+// FORCE_HTTPS=false desactiva la redireccion (util mientras el dominio todavia
+// no sirva un certificado valido, para no enviar a los usuarios a un error TLS).
+const FORCE_HTTPS = process.env.FORCE_HTTPS !== 'false';
+// HSTS: activar SOLO cuando Let's Encrypt ya emita el certificado del dominio.
+// Una vez publicado, el navegador deja de permitir la excepcion de certificado.
+const HSTS_ENABLED = process.env.HSTS_ENABLED === 'true';
+const HSTS_MAX_AGE = process.env.HSTS_MAX_AGE || '15552000';
+
 app.use((req, res, next) => {
     const forwardedProto = req.get('x-forwarded-proto');
     const isHttps = req.secure || forwardedProto === 'https';
 
     if (isHttps) {
-        res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
-    } else if (forwardedProto === 'http' && req.path !== '/api/health') {
+        if (HSTS_ENABLED) res.set('Strict-Transport-Security', `max-age=${HSTS_MAX_AGE}; includeSubDomains`);
+    } else if (FORCE_HTTPS && forwardedProto === 'http' && req.path !== '/api/health') {
         return res.redirect(301, `https://${req.get('host')}${req.originalUrl}`);
     }
 

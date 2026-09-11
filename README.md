@@ -156,10 +156,12 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 - **Rol de sesión**: el menú y los módulos se resuelven con el rol firmado en el JWT
   (`auth.currentUser.role`) sin esperar a la colección `users` (que es exclusiva de ADMIN); el panel
   queda operativo al instante y no se abre un SSE que responda `403` en bucle.
-- **HTTPS**: `server/index.js` confía en `X-Forwarded-Proto` (`trust proxy`), responde **301** a las
-  peticiones `http://` y emite **HSTS** (`Strict-Transport-Security`) cuando la petición es HTTPS.
-  Es lo que elimina el aviso «No es seguro» en el navegador aunque el certificado Let's Encrypt ya
-  esté activo en el dominio.
+- **HTTPS**: `server/index.js` confía en `X-Forwarded-Proto` (`trust proxy`) y responde **301** a las
+  peticiones `http://` (`FORCE_HTTPS`, activo por defecto; `/api/health` queda exento para no romper
+  el healthcheck). **HSTS** es opt-in (`HSTS_ENABLED=true`) y debe activarse **solo** cuando el
+  dominio ya sirva el certificado Let's Encrypt: una vez publicado, el navegador deja de permitir la
+  excepción de certificado. El TLS lo **termina Traefik**, así que un certificado mal emitido no se
+  corrige desde la app (ver §10).
 - **Cabeceras de seguridad**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
   `Referrer-Policy: strict-origin-when-cross-origin` y `Permissions-Policy` restrictiva.
 - Secretos solo por variables de entorno; `.env` y `*-firebase-adminsdk-*.json` están en `.gitignore`.
@@ -253,6 +255,7 @@ npm run smoke               # health + login + datos + SSE + RBAC (servidor corr
 npm run migrate             # migra Firestore -> MongoDB (una sola vez)
 npm run inventory           # inventario de colecciones de Firestore
 npm run probe               # verifica conexion a MongoDB
+npm run tls:check -- <dominio>  # diagnostico del certificado HTTPS (Traefik/Dokploy)
 npm run user:create -- <email> <password> [ADMIN|RRHH] [Nombre]
 npm run assets:optimize     # optimiza el logo y genera iconos PWA
 ```
@@ -286,6 +289,9 @@ Copiar `.env.production.example` a `.env` (o cargarlas en Dokploy → Environmen
 | `JWT_SECRET`                 | ✅             | Secreto para firmar sesiones (largo y aleatorio).              |
 | `JWT_EXPIRES_IN`             | —              | Duración de la sesión (por defecto `12h`).                     |
 | `PORT`                       | —              | Puerto del servidor (por defecto `3000`).                      |
+| `FORCE_HTTPS`                | —              | `true` (def.): redirige `http://` → `https://` con 301.        |
+| `HSTS_ENABLED`               | —              | `true` publica HSTS. Activar solo con certificado válido.      |
+| `HSTS_MAX_AGE`               | —              | Segundos de HSTS (por defecto `15552000` = 180 días).          |
 | `RAILPACK_START_CMD`         | Dokploy        | `npm run start:prod` — evita que Railpack sirva como estático. |
 | `RAILPACK_NODE_VERSION`      | Dokploy        | `22` (vitest 5 exige Node ≥ 22.12)                             |
 | `FIREBASE_SERVICE_ACCOUNT`   | Solo migración | Ruta al JSON del Admin SDK.                                    |
@@ -395,6 +401,32 @@ un alta/cambio se refleja sin recargar (SSE); **HTTPS activo** y `http://` redir
 `https://` (verificar que el proxy envíe `X-Forwarded-Proto`).
 
 **Rollback**: Dokploy guarda snapshots por deploy; los datos viven en MongoDB, no en el contenedor.
+
+### Si el navegador dice «No es seguro» y el certificado es `TRAEFIK DEFAULT CERT`
+
+Ese nombre común lo emite **Traefik** cuando no encuentra ni emite un certificado para el host
+consultado. El TLS lo termina Traefik, **no la app**: esto no se corrige con cambios de código.
+Diagnóstico (DNS + redirección + emisor/CN/SAN/vigencia + HSTS):
+
+```powershell
+npm run tls:check -- mi-dominio.com      # opcional: TLS_CHECK_PORT=<puerto>
+```
+
+Checklist, en orden:
+
+1. **Dokploy → Application → Domains**: `Host` exacto (sin `https://`, sin puerto, sin `/`), `Path=/`,
+   **`Port=3000`**, `HTTPS` activado y **`Certificate Provider = letsencrypt`**. Si el proveedor queda
+   en `none`, Traefik sirve su certificado autofirmado por defecto (el caso reportado).
+2. **DNS**: el registro `A` del host debe apuntar a la IP del servidor donde corre Traefik.
+3. **Firewall**: puertos **80 y 443** abiertos (la validación ACME de Let's Encrypt usa el 80). En
+   **AWS EC2** esto es el **Security Group** (inbound `80`/`443` desde `0.0.0.0/0`); es la causa más
+   frecuente de que Traefik no consiga el certificado. Si el proveedor tiene firewall propio (Hetzner,
+   Oracle, etc.), abrirlo también allí.
+4. Abrir el hostname **registrado** (si registraste el apex, no entres por `www`, y viceversa).
+5. **Cloudflare** con proxy activo (nube naranja): pasarlo a _DNS only_ para el reto HTTP-01.
+6. **Logs de Traefik** en Dokploy: buscar `unable to obtain certificate` o errores ACME.
+7. Corregido lo anterior, esperar la emisión (~1 min), recargar y recién entonces poner
+   `HSTS_ENABLED=true`.
 
 ---
 
