@@ -1,0 +1,59 @@
+{
+    // ---------------------------------------------------------------------
+    // Prettier (esbenp.prettier-vscode)
+    // ---------------------------------------------------------------------
+    // Apunta al entry ESM del Prettier instalado en el proyecto.
+    // Motivo: la extensión resuelve `node_modules/prettier/index.cjs`, y ese
+    // fichero ejecuta `import("./index.mjs")`. En el extension host de VS Code
+    // (Electron) esa importación relativa puede quedar cacheada como fallida y
+    // romper la extensión con:
+    //   Cannot find module '.../node_modules/prettier/index.mjs'
+    //   imported from '.../node_modules/prettier/index.cjs'
+    // Apuntando directamente a `index.mjs` se evita ese salto CJS -> ESM.
+    "prettier.prettierPath": "./node_modules/prettier/index.mjs",
+    // No resolver nunca un Prettier global (fuente habitual de versiones
+    // incompatibles y de errores de resolución).
+    "prettier.resolveGlobalModules": false,
+    // Config e ignore explícitos del repositorio.
+    "prettier.configPath": "./.prettierrc.json",
+    "prettier.ignorePath": "./.prettierignore",
+    // No leer .editorconfig: .prettierrc.json es la única fuente de verdad.
+    "prettier.useEditorConfig": false,
+    // No formatear ficheros dentro de node_modules.
+    "prettier.withNodeModules": false,
+    // Exigir un config de Prettier antes de formatear.
+    "prettier.requireConfig": true,
+    // Limita la extensión a los lenguajes que realmente formatea. Sin esto
+    // intenta resolver configuración para .env, Procfile, .gitignore, LICENSE…
+    // y ensucia el panel de salida con errores irrelevantes.
+    "prettier.documentSelectors": [
+        "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json,jsonc,css,scss,less,html,htm,md,mdx,yml,yaml}"
+    ],
+
+    // ---------------------------------------------------------------------
+    // Editor
+    // ---------------------------------------------------------------------
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    // El repositorio usa LF (prettier `endOfLine: lf`).
+    "files.eol": "\n",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+
+    // VS Code no admite combinar idiomas para `editor.defaultFormatter`,
+    // por eso se declara un bloque por lenguaje.
+    "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[yaml]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[markdown]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.trimTrailingWhitespace": false
+    }
+}

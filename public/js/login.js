@@ -1,4 +1,4 @@
-import { auth, signInWithEmailAndPassword, onAuthStateChanged } from "./auth.js";
+import { auth, signInWithEmailAndPassword, onAuthStateChanged } from './auth.js';
 
 const loginForm = document.getElementById('login-form');
 const loginBtn = document.getElementById('login-btn');
@@ -9,7 +9,7 @@ const errorText = document.getElementById('error-text');
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        window.location.href = "rrhh.html";
+        window.location.href = 'rrhh.html';
     }
 });
 
@@ -18,7 +18,7 @@ loginForm.addEventListener('submit', async (e) => {
 
     errorContainer.classList.add('hidden');
     loginBtn.disabled = true;
-    btnLabel.innerText = "Verificando...";
+    btnLabel.innerText = 'Verificando...';
     btnSpinner.classList.remove('hidden');
 
     const email = document.getElementById('email-input').value;
@@ -27,28 +27,28 @@ loginForm.addEventListener('submit', async (e) => {
     try {
         await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-        console.error("Error de login:", error.code);
+        console.error('Error de login:', error.code);
         errorContainer.classList.remove('hidden');
 
         switch (error.code) {
             case 'auth/invalid-credential':
-                errorText.innerText = "Correo o contrasena incorrectos.";
+                errorText.innerText = 'Correo o contrasena incorrectos.';
                 break;
             case 'auth/user-not-found':
-                errorText.innerText = "El usuario no existe.";
+                errorText.innerText = 'El usuario no existe.';
                 break;
             case 'auth/wrong-password':
-                errorText.innerText = "Contrasena incorrecta.";
+                errorText.innerText = 'Contrasena incorrecta.';
                 break;
             case 'auth/too-many-requests':
-                errorText.innerText = "Demasiados intentos. Intenta mas tarde.";
+                errorText.innerText = 'Demasiados intentos. Intenta mas tarde.';
                 break;
             default:
-                errorText.innerText = "Error de conexion con el sistema.";
+                errorText.innerText = 'Error de conexion con el sistema.';
         }
     } finally {
         loginBtn.disabled = false;
-        btnLabel.innerText = "Entrar al Sistema";
+        btnLabel.innerText = 'Entrar al Sistema';
         btnSpinner.classList.add('hidden');
     }
 });

@@ -9,63 +9,59 @@
  * ============================================================================
  */
 
-import { 
-    onAuthStateChanged, 
-    signOut,
-    createUser
-} from "./auth.js";
+import { onAuthStateChanged, signOut, createUser } from './auth.js';
 
-import { 
-    collection, 
-    onSnapshot, 
-    query, 
-    orderBy, 
-    deleteDoc, 
-    updateDoc, 
-    doc, 
-    addDoc, 
+import {
+    collection,
+    onSnapshot,
+    query,
+    orderBy,
+    deleteDoc,
+    updateDoc,
+    doc,
+    addDoc,
     serverTimestamp,
-    where 
-} from "./db.js";
+    where,
+} from './db.js';
 
-import { auth, db } from "./firebase-config.js";
-import { uiConfirm, uiPrompt } from "./ui.js";
-import * as Export from "./export.js";
-import { printTicket } from "./print-service.js";
+import { auth, db } from './firebase-config.js';
+import { uiConfirm, uiPrompt } from './ui.js';
+import * as Export from './export.js';
+import { printTicket } from './print-service.js';
 
-import * as ValesModule from "./vales.js"; 
-import * as SalariosModule from "./salarios.js";
-import * as ComisionesModule from "./comisiones.js";
-import * as ProveedoresModule from "./proveedores.js"; 
-import * as AusenciasModule from "./ausencias.js"; 
-import * as DesempenoModule from "./desempeno.js"; 
+import * as ValesModule from './vales.js';
+import * as SalariosModule from './salarios.js';
+import * as ComisionesModule from './comisiones.js';
+import * as ProveedoresModule from './proveedores.js';
+import * as AusenciasModule from './ausencias.js';
+import * as DesempenoModule from './desempeno.js';
 
-const VERSION = "5.7.0";
+const VERSION = '5.7.0';
 
 const LISTA_SUCURSALES = [
-    "MR LIN RESTAURANTE", 
-    "ESTUDIO JURIDICO LIN GROUP", 
-    "EMPENOS CHICOLIN", 
-    "PRESTAMOS CHICOLIN", 
-    "COMPUTECH", 
-    "CONSULTORIA LIN GROUP"
+    'MR LIN RESTAURANTE',
+    'ESTUDIO JURIDICO LIN GROUP',
+    'EMPENOS CHICOLIN',
+    'PRESTAMOS CHICOLIN',
+    'COMPUTECH',
+    'CONSULTORIA LIN GROUP',
 ];
 
 const CONFIG_UI = {
     toastDuration: 4000,
-    sidebarActive: "bg-blue-600 text-white shadow-lg shadow-blue-900/50 translate-x-2",
-    sidebarInactive: "text-slate-400 hover:text-white hover:bg-slate-800/50",
-    maxPhotoSize: 500 // px
+    sidebarActive: 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 translate-x-2',
+    sidebarInactive: 'text-slate-400 hover:text-white hover:bg-slate-800/50',
+    maxPhotoSize: 500, // px
 };
 
-let employeesData = []; 
-let valesData = []; 
+let employeesData = [];
+let valesData = [];
 let comisionesData = [];
-let salariesData = []; 
-let descuentosData = []; 
-let proveedoresData = []; 
-let ausenciasData = []; 
-let desempenoData = []; 
+let salariesData = [];
+let descuentosData = [];
+let proveedoresData = [];
+let ausenciasData = [];
+let desempenoData = [];
 let salaryHistoryData = [];
 let usersData = [];
 let currentUserRole = null;
@@ -86,7 +82,7 @@ const RRHH_ALLOWED_VIEWS = [
     'admin_ausencia_list',
     'salario_pend',
     'salario_individual',
-    'salario_ind'
+    'salario_ind',
 ];
 
 function denyAccess() {
@@ -105,7 +101,9 @@ function denyAccess() {
     const denyLogout = document.getElementById('denyLogout');
     if (denyLogout) {
         denyLogout.addEventListener('click', () => {
-            signOut(auth).then(() => { window.location.href = 'index.html'; });
+            signOut(auth).then(() => {
+                window.location.href = 'index.html';
+            });
         });
     }
 }
@@ -118,7 +116,7 @@ function syncUserRole() {
     if (!usersLoaded) return;
 
     const email = (auth.currentUser.email || '').toLowerCase();
-    const userDoc = usersData.find(u => u.email && u.email.toLowerCase() === email);
+    const userDoc = usersData.find((u) => u.email && u.email.toLowerCase() === email);
     const resolvedRole = userDoc ? userDoc.role : null;
 
     if (!resolvedRole) {
@@ -151,43 +149,48 @@ function syncUserRole() {
 
 onAuthStateChanged(auth, (user) => {
     if (!user) {
-        console.log("Acceso no autorizado. Redireccionando...");
-        window.location.href = "index.html";
+        console.log('Acceso no autorizado. Redireccionando...');
+        window.location.href = 'index.html';
     } else {
         console.log(`Sesion iniciada: ${user.email}`);
         syncUserRole();
-        initApp(); 
+        initApp();
     }
 });
 
 const btnLogout = document.getElementById('btnLogout');
-if(btnLogout) {
+if (btnLogout) {
     btnLogout.addEventListener('click', async () => {
-        const confirmado = await uiConfirm({ title: 'Cerrar sesion', message: 'Seguro que desea cerrar sesion?', tone: 'warning', confirmText: 'Cerrar sesion' });
+        const confirmado = await uiConfirm({
+            title: 'Cerrar sesion',
+            message: 'Seguro que desea cerrar sesion?',
+            tone: 'warning',
+            confirmText: 'Cerrar sesion',
+        });
         if (confirmado) {
             signOut(auth).then(() => {
-                console.log("Sesion cerrada.");
-                window.location.href = "index.html";
+                console.log('Sesion cerrada.');
+                window.location.href = 'index.html';
             });
         }
     });
 }
 
 function initApp() {
-    console.info("%cInicializando aplicacion LINGROUP", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;");
+    console.info('%cInicializando aplicacion LINGROUP', 'color: #3b82f6; font-weight: bold; font-size: 1.2rem;');
     syncVersionBadges();
     if (currentUserRole) renderMenu();
 
     onSnapshot(collection(db, 'users'), (snapshot) => {
         usersData = [];
-        snapshot.forEach(doc => usersData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => usersData.push({ id: doc.id, ...doc.data() }));
         usersLoaded = true;
         syncUserRole();
         refreshCurrentViewIf('admin_users');
     });
-    
+
     onSnapshot(query(collection(db, 'sucursales'), orderBy('name')), (snapshot) => {
-        sucursalesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        sucursalesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         console.log(`${sucursalesData.length} sucursales sincronizadas.`);
         refreshCurrentViewIf('admin_suc');
         refreshCurrentViewIf('rrhh_new');
@@ -196,7 +199,7 @@ function initApp() {
     const qEmp = query(collection(db, 'employees'), orderBy('fullName'));
     onSnapshot(qEmp, (snapshot) => {
         employeesData = [];
-        snapshot.forEach(doc => employeesData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => employeesData.push({ id: doc.id, ...doc.data() }));
         updateDashboardCards();
         refreshCurrentViewIf('rrhh');
         refreshCurrentViewIf('salario');
@@ -204,7 +207,7 @@ function initApp() {
 
     onSnapshot(collection(db, 'salaryHistory'), (snapshot) => {
         salaryHistoryData = [];
-        snapshot.forEach(doc => salaryHistoryData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => salaryHistoryData.push({ id: doc.id, ...doc.data() }));
         SalariosModule.setSalaryHistoryData(salaryHistoryData);
         refreshCurrentViewIf('rrhh');
         refreshCurrentViewIf('salario');
@@ -212,14 +215,14 @@ function initApp() {
 
     onSnapshot(collection(db, 'vales'), (snapshot) => {
         valesData = [];
-        snapshot.forEach(doc => valesData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => valesData.push({ id: doc.id, ...doc.data() }));
         refreshCurrentViewIf('vales');
-        refreshCurrentViewIf('salario'); 
+        refreshCurrentViewIf('salario');
     });
 
     onSnapshot(collection(db, 'comisiones'), (snapshot) => {
         comisionesData = [];
-        snapshot.forEach(doc => comisionesData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => comisionesData.push({ id: doc.id, ...doc.data() }));
         refreshCurrentViewIf('com');
         refreshCurrentViewIf('salario');
     });
@@ -227,31 +230,34 @@ function initApp() {
     const qSal = query(collection(db, 'salaries'), orderBy('date', 'desc'));
     onSnapshot(qSal, (snapshot) => {
         salariesData = [];
-        snapshot.forEach(doc => salariesData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => salariesData.push({ id: doc.id, ...doc.data() }));
         refreshCurrentViewIf('salario');
         updateDashboardCards();
     });
 
     onSnapshot(collection(db, 'descuentos'), (snapshot) => {
         descuentosData = [];
-        snapshot.forEach(doc => descuentosData.push({ id: doc.id, ...doc.data() }));
+        snapshot.forEach((doc) => descuentosData.push({ id: doc.id, ...doc.data() }));
         refreshCurrentViewIf('admin_desc');
         refreshCurrentViewIf('salario_pend');
         refreshCurrentViewIf('salario_individual');
     });
 
     onSnapshot(collection(db, 'proveedores'), (snap) => {
-        proveedoresData = []; snap.forEach(d => proveedoresData.push({ id: d.id, ...d.data() }));
+        proveedoresData = [];
+        snap.forEach((d) => proveedoresData.push({ id: d.id, ...d.data() }));
         refreshCurrentViewIf('admin_prov');
     });
 
     onSnapshot(collection(db, 'ausencias'), (snap) => {
-        ausenciasData = []; snap.forEach(d => ausenciasData.push({ id: d.id, ...d.data() }));
+        ausenciasData = [];
+        snap.forEach((d) => ausenciasData.push({ id: d.id, ...d.data() }));
         refreshCurrentViewIf('admin_ausencia');
     });
 
     onSnapshot(collection(db, 'evaluaciones'), (snap) => {
-        desempenoData = []; snap.forEach(d => desempenoData.push({ id: d.id, ...d.data() }));
+        desempenoData = [];
+        snap.forEach((d) => desempenoData.push({ id: d.id, ...d.data() }));
         refreshCurrentViewIf('admin_desempeno');
     });
 
@@ -259,11 +265,11 @@ function initApp() {
     ComisionesModule.initComisionesGlobalListeners(showToast);
     SalariosModule.initSalariosGlobalListeners(showToast);
     ProveedoresModule.initProveedoresListeners(showToast);
-    AusenciasModule.initAusenciasListeners(showToast); 
+    AusenciasModule.initAusenciasListeners(showToast);
     DesempenoModule.initDesempenoListeners(showToast);
 
     initRRHHGlobalListeners();
-    if (currentUserRole) renderContent(); 
+    if (currentUserRole) renderContent();
 }
 
 function refreshCurrentViewIf(sectionKey) {
@@ -273,7 +279,7 @@ function refreshCurrentViewIf(sectionKey) {
 }
 
 function syncVersionBadges() {
-    document.querySelectorAll('[data-system-version]').forEach(node => {
+    document.querySelectorAll('[data-system-version]').forEach((node) => {
         node.textContent = VERSION;
     });
 }
@@ -300,7 +306,7 @@ function unlockRRHHModalScroll() {
 
 function initRRHHGlobalListeners() {
     const getSalaryHistoryForEmployee = (employeeId) =>
-        SalariosModule.getSalaryHistoryForEmployee(employeeId).filter(item => !item.deleted && item.active !== false);
+        SalariosModule.getSalaryHistoryForEmployee(employeeId).filter((item) => !item.deleted && item.active !== false);
 
     const closeSalaryIncreaseModal = () => {
         const modal = document.getElementById('salaryIncreaseModal');
@@ -321,7 +327,10 @@ function initRRHHGlobalListeners() {
 
         container.innerHTML = `
             <div class="space-y-2">
-                ${history.slice(0, 6).map(item => `
+                ${history
+                    .slice(0, 6)
+                    .map(
+                        (item) => `
                     <div class="p-3 rounded-2xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
                         <div>
                             <p class="text-xs font-black text-slate-700">Gs. ${Number(item.previousSalary || 0).toLocaleString()} -> Gs. ${Number(item.newSalary || 0).toLocaleString()}</p>
@@ -329,14 +338,16 @@ function initRRHHGlobalListeners() {
                         </div>
                         <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">${item.createdBy || 'Sistema'}</span>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>`;
     };
 
     window.closeSalaryIncreaseModal = closeSalaryIncreaseModal;
 
     window.openSalaryIncreaseModal = (id) => {
-        const employee = employeesData.find(item => item.id === id);
+        const employee = employeesData.find((item) => item.id === id);
         const modal = document.getElementById('salaryIncreaseModal');
         const form = document.getElementById('salaryIncreaseForm');
         if (!employee || !modal || !form) return;
@@ -364,33 +375,37 @@ function initRRHHGlobalListeners() {
         const btn = document.getElementById('btnSaveSalaryIncrease');
         const original = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = "GUARDANDO...";
+        btn.innerHTML = 'GUARDANDO...';
 
         try {
             const employeeId = form.employeeId.value;
-            const employee = employeesData.find(item => item.id === employeeId);
+            const employee = employeesData.find((item) => item.id === employeeId);
             const rawNewSalary = Number(form.newSalary.value);
             const newSalary = Math.floor(rawNewSalary);
             const effectiveFrom = form.effectiveFrom.value;
             const reason = (form.reason.value || '').trim();
             const effectiveDate = parseDateOnly(effectiveFrom);
 
-            if (!employee) throw new Error("Funcionario inexistente.");
-            if (!effectiveDate) throw new Error("La fecha de vigencia es obligatoria.");
-            if (!Number.isFinite(rawNewSalary)) throw new Error("Ingrese un nuevo salario valido.");
-            if (newSalary < 0) throw new Error("El salario no puede ser negativo.");
-            if (newSalary === 0) throw new Error("El salario no puede quedar en cero.");
-            if (reason.length > 300) throw new Error("La observacion no puede superar 300 caracteres.");
+            if (!employee) throw new Error('Funcionario inexistente.');
+            if (!effectiveDate) throw new Error('La fecha de vigencia es obligatoria.');
+            if (!Number.isFinite(rawNewSalary)) throw new Error('Ingrese un nuevo salario valido.');
+            if (newSalary < 0) throw new Error('El salario no puede ser negativo.');
+            if (newSalary === 0) throw new Error('El salario no puede quedar en cero.');
+            if (reason.length > 300) throw new Error('La observacion no puede superar 300 caracteres.');
 
             const effectiveMonth = `${effectiveDate.getFullYear()}-${String(effectiveDate.getMonth() + 1).padStart(2, '0')}`;
             const history = getSalaryHistoryForEmployee(employee.id);
-            if (history.some(item => item.effectiveMonth === effectiveMonth)) {
-                throw new Error("Ya existe un aumento activo para ese mismo mes.");
+            if (history.some((item) => item.effectiveMonth === effectiveMonth)) {
+                throw new Error('Ya existe un aumento activo para ese mismo mes.');
             }
 
-            const previousSalary = SalariosModule.getEffectiveSalaryAmountForPeriod(employee, effectiveDate.getFullYear(), effectiveDate.getMonth() + 1);
+            const previousSalary = SalariosModule.getEffectiveSalaryAmountForPeriod(
+                employee,
+                effectiveDate.getFullYear(),
+                effectiveDate.getMonth() + 1
+            );
             if (newSalary <= previousSalary) {
-                throw new Error("El nuevo salario debe ser mayor al salario vigente para esa fecha.");
+                throw new Error('El nuevo salario debe ser mayor al salario vigente para esa fecha.');
             }
 
             await addDoc(collection(db, 'salaryHistory'), {
@@ -402,7 +417,7 @@ function initRRHHGlobalListeners() {
                 reason,
                 createdAt: serverTimestamp(),
                 createdBy: auth.currentUser?.email || 'Sistema',
-                active: true
+                active: true,
             });
 
             const today = new Date();
@@ -410,15 +425,15 @@ function initRRHHGlobalListeners() {
             if (shouldSyncEmployeeCard) {
                 await updateDoc(doc(db, 'employees', employee.id), {
                     salary: newSalary,
-                    updatedAt: serverTimestamp()
+                    updatedAt: serverTimestamp(),
                 });
             }
 
-            showToast("Exito", "Aumento salarial registrado.");
+            showToast('Exito', 'Aumento salarial registrado.');
             closeSalaryIncreaseModal();
         } catch (error) {
             console.error(error);
-            showToast("Error", error.message || "No se pudo registrar el aumento salarial.");
+            showToast('Error', error.message || 'No se pudo registrar el aumento salarial.');
         } finally {
             btn.disabled = false;
             btn.innerHTML = original;
@@ -426,14 +441,20 @@ function initRRHHGlobalListeners() {
     };
 
     window.deleteEmployee = async (id, name) => {
-        const confirmStr = `PELIGRO: Esta a punto de eliminar a ${name}.\n\n` + 
-                        `Esto no borrara sus pagos historicos pero el funcionario ya no aparecera en las planillas.\n` + 
-                        `Desea continuar?`;
-        const confirmado = await uiConfirm({ title: 'Eliminar funcionario', message: confirmStr, tone: 'danger', confirmText: 'Eliminar' });
+        const confirmStr =
+            `PELIGRO: Esta a punto de eliminar a ${name}.\n\n` +
+            `Esto no borrara sus pagos historicos pero el funcionario ya no aparecera en las planillas.\n` +
+            `Desea continuar?`;
+        const confirmado = await uiConfirm({
+            title: 'Eliminar funcionario',
+            message: confirmStr,
+            tone: 'danger',
+            confirmText: 'Eliminar',
+        });
         if (!confirmado) return;
-        
+
         try {
-            await deleteDoc(doc(db, "employees", id));
+            await deleteDoc(doc(db, 'employees', id));
             showToast('Eliminado', 'Funcionario removido del sistema.');
         } catch (error) {
             console.error(error);
@@ -443,12 +464,19 @@ function initRRHHGlobalListeners() {
 
     // Dar de baja (RRHH)
     window.deactivateEmployee = async (id, name) => {
-        const emp = employeesData.find(e => e.id === id);
+        const emp = employeesData.find((e) => e.id === id);
         const today = new Date().toISOString().split('T')[0];
-        const endDate = await uiPrompt({ title: 'Dar de baja', message: `Fecha de baja para ${name} (AAAA-MM-DD):`, defaultValue: today, inputType: 'date', confirmText: 'Dar de baja' });
+        const endDate = await uiPrompt({
+            title: 'Dar de baja',
+            message: `Fecha de baja para ${name} (AAAA-MM-DD):`,
+            defaultValue: today,
+            inputType: 'date',
+            confirmText: 'Dar de baja',
+        });
         if (!endDate) return;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return showToast('Error', 'Formato de fecha invalido (AAAA-MM-DD).');
-        if (emp?.startDate && endDate < emp.startDate) return showToast('Error', 'La fecha de baja no puede ser anterior al ingreso.');
+        if (emp?.startDate && endDate < emp.startDate)
+            return showToast('Error', 'La fecha de baja no puede ser anterior al ingreso.');
 
         try {
             await updateDoc(doc(db, 'employees', id), { status: 'INACTIVO', endDate });
@@ -460,16 +488,16 @@ function initRRHHGlobalListeners() {
     };
 
     window.editEmployee = (id) => {
-        const emp = employeesData.find(e => e.id === id);
-        if(!emp) return;
-        
+        const emp = employeesData.find((e) => e.id === id);
+        if (!emp) return;
+
         navigateTo('rrhh_new', 'Editar Funcionario');
-        
+
         setTimeout(() => {
             const form = document.getElementById('empForm');
-            if(!form) return;
-            
-            form.employeeId.value = emp.id; 
+            if (!form) return;
+
+            form.employeeId.value = emp.id;
             form.fullName.value = emp.fullName;
             form.dni.value = emp.dni || '';
             form.dob.value = emp.dob;
@@ -479,24 +507,24 @@ function initRRHHGlobalListeners() {
             form.position.value = emp.position;
             form.salary.value = emp.salary;
             form.branch.value = emp.branch;
-            
-            if(form.status) form.status.value = emp.status || 'ACTIVO';
-            if(form.endDate) form.endDate.value = emp.endDate || '';
+
+            if (form.status) form.status.value = emp.status || 'ACTIVO';
+            if (form.endDate) form.endDate.value = emp.endDate || '';
 
             const endDateContainer = document.getElementById('endDateContainer');
-            if(endDateContainer) {
-                if(emp.status === 'INACTIVO') endDateContainer.classList.remove('hidden');
+            if (endDateContainer) {
+                if (emp.status === 'INACTIVO') endDateContainer.classList.remove('hidden');
                 else endDateContainer.classList.add('hidden');
             }
-            
+
             const preview = document.getElementById('preview');
             const icon = document.getElementById('iconPreview');
-            if(emp.photo) {
+            if (emp.photo) {
                 preview.src = emp.photo;
                 preview.classList.remove('hidden');
                 icon.classList.add('hidden');
             }
-            
+
             const btn = document.getElementById('btnSave');
             btn.innerHTML = '<i class="ph-bold ph-arrows-clockwise text-xl"></i> ACTUALIZAR FICHA';
             btn.classList.replace('bg-blue-600', 'bg-indigo-600');
@@ -504,58 +532,87 @@ function initRRHHGlobalListeners() {
         }, 150);
     };
 
-
     window.toggleEndDateVisibility = (statusSelect) => {
         const endDateContainer = document.getElementById('endDateContainer');
-        if(!endDateContainer) return;
-        
+        if (!endDateContainer) return;
+
         if (statusSelect.value === 'INACTIVO') {
             endDateContainer.classList.remove('hidden');
         } else {
             endDateContainer.classList.add('hidden');
             const endDateInput = document.querySelector('input[name="endDate"]');
-            if(endDateInput) endDateInput.value = ''; 
+            if (endDateInput) endDateInput.value = '';
         }
     };
 }
 
 const menuItemsAdmin = [
     { id: 'dashboard', label: 'Resumen Global', icon: 'ph-chart-pie-slice', type: 'single' },
-    { label: 'Gestion RRHH', icon: 'ph-users-three', type: 'group', children: [
-        { id: 'rrhh_new', label: 'Nuevo Funcionario' },
-        { id: 'rrhh_list', label: 'Lista de Personal' },
-        { id: 'rrhh_liquidaciones', label: 'Calendario de Liquidaciones' }
-    ]},
-    { label: 'Vales / Anticipos', icon: 'ph-ticket', type: 'group', children: [
-        { id: 'vales_new', label: 'Solicitar Vale' },
-        { id: 'vales_aprob', label: 'Aprobar Solicitudes' },
-        { id: 'vales_list', label: 'Historial de Vales' }
-    ]},
-    { label: 'Nomina y Pagos', icon: 'ph-coins', type: 'group', children: [
-        { id: 'salario_ind', label: 'Historial de Pagos' },
-        { id: 'salario_auditoria', label: 'Auditoria de Pagos' },
-        { id: 'salario_pend', label: 'Liquidar Pendientes' },
-        { id: 'salario_individual', label: 'Pago Individual' }
-    ]},
-    { label: 'Comisiones', icon: 'ph-trend-up', type: 'group', children: [
-        { id: 'com_reg', label: 'Registrar (+)' },
-        { id: 'com_res', label: 'Reporte Mensual' }
-    ]},
-    { label: 'Administrativo', icon: 'ph-briefcase', type: 'group', children: [
-        { id: 'admin_desc', label: 'Descuentos (-)' },
-        { id: 'admin_suc', label: 'Sucursales / Horarios' },
-        { id: 'admin_prov_new', label: 'Nuevo Proveedor' },
-        { id: 'admin_prov_list', label: 'Lista Proveedores' },
-        { id: 'admin_ausencia_new', label: 'Reportar Ausencia' },
-        { id: 'admin_ausencia_list', label: 'Historial Ausencias' },
-        { id: 'admin_desempeno_new', label: 'Nueva Evaluacion' },
-        { id: 'admin_desempeno_list', label: 'Historial Desempeno' }
-    ]},
-    { label: 'Gestion Sistema', icon: 'ph-gear-six', type: 'group', children: [
-        { id: 'admin_users', label: 'Gestion de Usuarios' },
-        { id: 'admin_aprobacion_pagos', label: 'Aprobacion de Pagos' }
-    ]},
-    { id: 'birthdays', label: 'Cumpleanos', icon: 'ph-cake', type: 'single' }
+    {
+        label: 'Gestion RRHH',
+        icon: 'ph-users-three',
+        type: 'group',
+        children: [
+            { id: 'rrhh_new', label: 'Nuevo Funcionario' },
+            { id: 'rrhh_list', label: 'Lista de Personal' },
+            { id: 'rrhh_liquidaciones', label: 'Calendario de Liquidaciones' },
+        ],
+    },
+    {
+        label: 'Vales / Anticipos',
+        icon: 'ph-ticket',
+        type: 'group',
+        children: [
+            { id: 'vales_new', label: 'Solicitar Vale' },
+            { id: 'vales_aprob', label: 'Aprobar Solicitudes' },
+            { id: 'vales_list', label: 'Historial de Vales' },
+        ],
+    },
+    {
+        label: 'Nomina y Pagos',
+        icon: 'ph-coins',
+        type: 'group',
+        children: [
+            { id: 'salario_ind', label: 'Historial de Pagos' },
+            { id: 'salario_auditoria', label: 'Auditoria de Pagos' },
+            { id: 'salario_pend', label: 'Liquidar Pendientes' },
+            { id: 'salario_individual', label: 'Pago Individual' },
+        ],
+    },
+    {
+        label: 'Comisiones',
+        icon: 'ph-trend-up',
+        type: 'group',
+        children: [
+            { id: 'com_reg', label: 'Registrar (+)' },
+            { id: 'com_res', label: 'Reporte Mensual' },
+        ],
+    },
+    {
+        label: 'Administrativo',
+        icon: 'ph-briefcase',
+        type: 'group',
+        children: [
+            { id: 'admin_desc', label: 'Descuentos (-)' },
+            { id: 'admin_suc', label: 'Sucursales / Horarios' },
+            { id: 'admin_prov_new', label: 'Nuevo Proveedor' },
+            { id: 'admin_prov_list', label: 'Lista Proveedores' },
+            { id: 'admin_ausencia_new', label: 'Reportar Ausencia' },
+            { id: 'admin_ausencia_list', label: 'Historial Ausencias' },
+            { id: 'admin_desempeno_new', label: 'Nueva Evaluacion' },
+            { id: 'admin_desempeno_list', label: 'Historial Desempeno' },
+        ],
+    },
+    {
+        label: 'Gestion Sistema',
+        icon: 'ph-gear-six',
+        type: 'group',
+        children: [
+            { id: 'admin_users', label: 'Gestion de Usuarios' },
+            { id: 'admin_aprobacion_pagos', label: 'Aprobacion de Pagos' },
+        ],
+    },
+    { id: 'birthdays', label: 'Cumpleanos', icon: 'ph-cake', type: 'single' },
 ];
 
 const menuItemsRRHH = [
@@ -567,11 +624,16 @@ const menuItemsRRHH = [
     { id: 'admin_suc', label: 'Sucursales / Horarios', icon: 'ph-storefront', type: 'single' },
     { id: 'admin_ausencia_new', label: 'Reportar Ausencia', icon: 'ph-user-minus', type: 'single' },
     { id: 'admin_ausencia_list', label: 'Historial Ausencias', icon: 'ph-clipboard-text', type: 'single' },
-    { label: 'Nomina y Pagos', icon: 'ph-coins', type: 'group', children: [
-        { id: 'salario_pend', label: 'Liquidar Pendientes' },
-        { id: 'salario_individual', label: 'Pago Individual' },
-        { id: 'salario_ind', label: 'Historial de Pagos' }
-    ]}
+    {
+        label: 'Nomina y Pagos',
+        icon: 'ph-coins',
+        type: 'group',
+        children: [
+            { id: 'salario_pend', label: 'Liquidar Pendientes' },
+            { id: 'salario_individual', label: 'Pago Individual' },
+            { id: 'salario_ind', label: 'Historial de Pagos' },
+        ],
+    },
 ];
 
 // Menu lateral (visible en movil).
@@ -602,18 +664,18 @@ window.closeAboutModal = (event) => {
 
 function renderMenu() {
     const nav = document.getElementById('sidebarMenu');
-    if(!nav) return;
+    if (!nav) return;
     nav.innerHTML = '';
-    
+
     const items = currentUserRole === 'RRHH' ? menuItemsRRHH : menuItemsAdmin;
 
-    items.forEach(item => {
+    items.forEach((item) => {
         if (item.type === 'group') {
             nav.innerHTML += `
                 <div class="px-6 py-3 mt-4 text-[10px] font-black text-slate-500 uppercase tracking-[2px] flex items-center gap-2 border-t border-slate-800/30 pt-4">
                     <i class="ph ${item.icon} text-sm text-blue-500"></i> ${item.label}
                 </div>`;
-            item.children.forEach(c => {
+            item.children.forEach((c) => {
                 const active = currentView === c.id ? CONFIG_UI.sidebarActive : CONFIG_UI.sidebarInactive;
                 nav.innerHTML += `
                     <div onclick="navigateTo('${c.id}', '${c.label}')" class="cursor-pointer ml-4 mr-4 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 mb-1 ${active}">
@@ -621,7 +683,10 @@ function renderMenu() {
                     </div>`;
             });
         } else {
-            const active = currentView === item.id ? CONFIG_UI.sidebarActive.replace('translate-x-2', '') : CONFIG_UI.sidebarInactive;
+            const active =
+                currentView === item.id
+                    ? CONFIG_UI.sidebarActive.replace('translate-x-2', '')
+                    : CONFIG_UI.sidebarInactive;
             nav.innerHTML += `
                 <div onclick="navigateTo('${item.id}', '${item.label}')" class="mx-4 cursor-pointer px-4 py-3.5 rounded-xl text-sm font-bold flex items-center gap-3 transition-all duration-300 mb-2 ${active}">
                     <i class="ph ${item.icon} text-xl"></i> <span>${item.label}</span>
@@ -638,7 +703,7 @@ function navigateTo(id, label) {
     }
     currentView = id;
     const title = document.getElementById('pageTitle');
-    if(title) title.innerText = label;
+    if (title) title.innerText = label;
     renderMenu();
     renderContent();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -647,93 +712,107 @@ function navigateTo(id, label) {
 
 function renderContent() {
     const main = document.getElementById('mainContent');
-    if(!main) return;
-    main.innerHTML = ''; 
-    
-    switch(currentView) {
-        case 'dashboard': 
-            main.innerHTML = viewDashboard(); 
+    if (!main) return;
+    main.innerHTML = '';
+
+    switch (currentView) {
+        case 'dashboard':
+            main.innerHTML = viewDashboard();
             break;
-        case 'rrhh_new': 
-            main.innerHTML = viewNewEmployee(); 
-            setupEmployeeForm(); 
+        case 'rrhh_new':
+            main.innerHTML = viewNewEmployee();
+            setupEmployeeForm();
             break;
-        case 'rrhh_list': 
-            main.innerHTML = viewEmployeeList(); 
+        case 'rrhh_list':
+            main.innerHTML = viewEmployeeList();
             break;
         case 'rrhh_liquidaciones':
             main.innerHTML = viewRRHHLiquidationsCalendar();
             break;
-        case 'vales_new': 
-            main.innerHTML = ValesModule.getViewCreateVale(employeesData, valesData); 
-            ValesModule.setupCreateValeLogic(showToast); 
+        case 'vales_new':
+            main.innerHTML = ValesModule.getViewCreateVale(employeesData, valesData);
+            ValesModule.setupCreateValeLogic(showToast);
             break;
-        case 'vales_list': 
-            main.innerHTML = ValesModule.getViewListVales(valesData, employeesData); 
+        case 'vales_list':
+            main.innerHTML = ValesModule.getViewListVales(valesData, employeesData);
             break;
-        case 'vales_aprob': 
-            main.innerHTML = ValesModule.getViewApproveVales(valesData, employeesData); 
+        case 'vales_aprob':
+            main.innerHTML = ValesModule.getViewApproveVales(valesData, employeesData);
             break;
-        case 'com_reg': 
-            main.innerHTML = ComisionesModule.getViewCreateComision(employeesData); 
-            ComisionesModule.setupCreateComisionLogic(showToast); 
+        case 'com_reg':
+            main.innerHTML = ComisionesModule.getViewCreateComision(employeesData);
+            ComisionesModule.setupCreateComisionLogic(showToast);
             break;
-        case 'com_res': 
-            main.innerHTML = ComisionesModule.getViewListComisiones(comisionesData); 
+        case 'com_res':
+            main.innerHTML = ComisionesModule.getViewListComisiones(comisionesData);
             break;
-        case 'salario_pend': 
-            main.innerHTML = SalariosModule.getViewPendingSalaries(); 
-            SalariosModule.setupPendingSalariesLogic(showToast, employeesData, valesData, comisionesData, descuentosData, salariesData); 
+        case 'salario_pend':
+            main.innerHTML = SalariosModule.getViewPendingSalaries();
+            SalariosModule.setupPendingSalariesLogic(
+                showToast,
+                employeesData,
+                valesData,
+                comisionesData,
+                descuentosData,
+                salariesData
+            );
             break;
-        case 'salario_ind': 
-            main.innerHTML = SalariosModule.getViewHistorySalaries(salariesData, employeesData); 
+        case 'salario_ind':
+            main.innerHTML = SalariosModule.getViewHistorySalaries(salariesData, employeesData);
             SalariosModule.setupHistorySalaries();
             break;
         case 'salario_auditoria':
             main.innerHTML = SalariosModule.getViewPaymentAudit(salariesData, employeesData);
             SalariosModule.setupPaymentAuditLogic();
             break;
-        case 'salario_individual': 
-            main.innerHTML = SalariosModule.getViewIndividualPayment(employeesData); 
-            SalariosModule.setupIndividualPaymentLogic(showToast, employeesData, valesData, comisionesData, descuentosData, salariesData); 
+        case 'salario_individual':
+            main.innerHTML = SalariosModule.getViewIndividualPayment(employeesData);
+            SalariosModule.setupIndividualPaymentLogic(
+                showToast,
+                employeesData,
+                valesData,
+                comisionesData,
+                descuentosData,
+                salariesData
+            );
             break;
-        case 'admin_desc': 
-            main.innerHTML = viewAdminDescuentos(); 
+        case 'admin_desc':
+            main.innerHTML = viewAdminDescuentos();
             break;
-        case 'admin_suc': 
+        case 'admin_suc':
             main.innerHTML = viewAdminSucursales();
             break;
-        case 'admin_prov_new': 
-            main.innerHTML = ProveedoresModule.getViewCreateProveedor(); 
-            ProveedoresModule.setupCreateProveedorLogic(showToast); 
+        case 'admin_prov_new':
+            main.innerHTML = ProveedoresModule.getViewCreateProveedor();
+            ProveedoresModule.setupCreateProveedorLogic(showToast);
             break;
-        case 'admin_prov_list': 
-            main.innerHTML = ProveedoresModule.getViewListProveedores(proveedoresData); 
+        case 'admin_prov_list':
+            main.innerHTML = ProveedoresModule.getViewListProveedores(proveedoresData);
             break;
-        case 'admin_ausencia_new': 
-            main.innerHTML = AusenciasModule.getViewCreateAusencia(employeesData); 
-            AusenciasModule.setupCreateAusenciaLogic(showToast); 
+        case 'admin_ausencia_new':
+            main.innerHTML = AusenciasModule.getViewCreateAusencia(employeesData);
+            AusenciasModule.setupCreateAusenciaLogic(showToast);
             break;
-        case 'admin_ausencia_list': 
-            main.innerHTML = AusenciasModule.getViewListAusencias(ausenciasData, employeesData); 
+        case 'admin_ausencia_list':
+            main.innerHTML = AusenciasModule.getViewListAusencias(ausenciasData, employeesData);
             break;
-        case 'admin_desempeno_new': 
-            main.innerHTML = DesempenoModule.getViewCreateDesempeno(employeesData); 
-            DesempenoModule.setupCreateDesempenoLogic(showToast); 
+        case 'admin_desempeno_new':
+            main.innerHTML = DesempenoModule.getViewCreateDesempeno(employeesData);
+            DesempenoModule.setupCreateDesempenoLogic(showToast);
             break;
-        case 'admin_desempeno_list': 
-            main.innerHTML = DesempenoModule.getViewListDesempeno(desempenoData, employeesData); 
+        case 'admin_desempeno_list':
+            main.innerHTML = DesempenoModule.getViewListDesempeno(desempenoData, employeesData);
             break;
-        case 'admin_users': 
-            main.innerHTML = viewAdminUsers(); 
+        case 'admin_users':
+            main.innerHTML = viewAdminUsers();
             break;
-        case 'admin_aprobacion_pagos': 
-            main.innerHTML = viewAdminAprobacionPagos(); 
+        case 'admin_aprobacion_pagos':
+            main.innerHTML = viewAdminAprobacionPagos();
             break;
-        case 'birthdays': 
-            main.innerHTML = viewBirthdays(); 
+        case 'birthdays':
+            main.innerHTML = viewBirthdays();
             break;
-        default: 
+        default:
             main.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full text-slate-400 py-20">
                     <i class="ph ph-cone text-6xl mb-4 opacity-30"></i>
@@ -768,7 +847,7 @@ function getEmployeeIntegrityIssues(emp) {
         issues.push({
             label: 'FECHA DE INGRESO INVALIDA',
             detail: 'La fecha de ingreso falta o no se puede interpretar correctamente.',
-            tone: 'amber'
+            tone: 'amber',
         });
     }
 
@@ -776,7 +855,7 @@ function getEmployeeIntegrityIssues(emp) {
         issues.push({
             label: 'ACTIVO CON FECHA DE BAJA',
             detail: 'El funcionario sigue activo, pero la ficha conserva una fecha de baja.',
-            tone: 'amber'
+            tone: 'amber',
         });
     }
 
@@ -784,7 +863,7 @@ function getEmployeeIntegrityIssues(emp) {
         issues.push({
             label: 'INACTIVO SIN FECHA DE BAJA',
             detail: 'No se puede calcular correctamente su liquidacion final ni el calendario de pago.',
-            tone: 'rose'
+            tone: 'rose',
         });
     }
 
@@ -792,7 +871,7 @@ function getEmployeeIntegrityIssues(emp) {
         issues.push({
             label: 'FECHAS INCONSISTENTES',
             detail: 'La fecha de baja es anterior a la fecha de ingreso.',
-            tone: 'rose'
+            tone: 'rose',
         });
     }
 
@@ -803,12 +882,12 @@ function getIntegrityToneClasses(tone) {
     if (tone === 'rose') {
         return {
             badge: 'bg-rose-100 text-rose-700',
-            panel: 'bg-rose-50 border-rose-200 text-rose-700'
+            panel: 'bg-rose-50 border-rose-200 text-rose-700',
         };
     }
     return {
         badge: 'bg-amber-100 text-amber-700',
-        panel: 'bg-amber-50 border-amber-200 text-amber-700'
+        panel: 'bg-amber-50 border-amber-200 text-amber-700',
     };
 }
 
@@ -834,8 +913,8 @@ function getDaysUntil(targetDate, baseDate = new Date()) {
 
 function getPendingFinalSettlements() {
     return employeesData
-        .filter(emp => emp.status === 'INACTIVO' && emp.endDate)
-        .map(emp => {
+        .filter((emp) => emp.status === 'INACTIVO' && emp.endDate)
+        .map((emp) => {
             const endDate = parseDateOnly(emp.endDate);
             if (!endDate) return null;
 
@@ -880,7 +959,7 @@ function getPendingFinalSettlements() {
                 year,
                 pendingAmount: totals.saldo,
                 statusLabel,
-                statusClass
+                statusClass,
             };
         })
         .filter(Boolean)
@@ -890,10 +969,13 @@ function getPendingFinalSettlements() {
 function renderFinalSettlementsCalendarSection() {
     const pendingFinalSettlements = getPendingFinalSettlements();
     const totalPendingFinalSettlements = pendingFinalSettlements.reduce((acc, item) => acc + item.pendingAmount, 0);
-    const overdueFinalSettlements = pendingFinalSettlements.filter(item => getDaysUntil(item.dueDate) < 0).length;
+    const overdueFinalSettlements = pendingFinalSettlements.filter((item) => getDaysUntil(item.dueDate) < 0).length;
     const nextFinalSettlement = pendingFinalSettlements[0] || null;
-    const finalSettlementCalendarHtml = pendingFinalSettlements.length > 0
-        ? pendingFinalSettlements.map(item => `
+    const finalSettlementCalendarHtml =
+        pendingFinalSettlements.length > 0
+            ? pendingFinalSettlements
+                  .map(
+                      (item) => `
             <div class="bg-white border border-slate-100 rounded-[28px] p-5 shadow-sm hover:shadow-md transition-all">
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div class="min-w-0">
@@ -915,8 +997,10 @@ function renderFinalSettlementsCalendarSection() {
                     </div>
                 </div>
             </div>
-        `).join('')
-        : `
+        `
+                  )
+                  .join('')
+            : `
             <div class="bg-white border border-dashed border-slate-200 rounded-[28px] p-10 text-center text-slate-400">
                 <i class="ph ph-calendar-check text-4xl mb-3"></i>
                 <p class="font-black text-slate-600">No hay liquidaciones finales pendientes.</p>
@@ -1062,9 +1146,13 @@ function renderBranchBars(entries) {
 }
 
 function viewDashboard() {
-    const activeEmployeesCount = employeesData.filter(e => e.status !== 'INACTIVO').length;
-    const totalValesPend = valesData.filter(v => v.status === 'Pendiente').reduce((acc, curr) => acc + (curr.amount || 0), 0);
-    const totalComsMes = comisionesData.filter(c => c.status === 'Aprobado').reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const activeEmployeesCount = employeesData.filter((e) => e.status !== 'INACTIVO').length;
+    const totalValesPend = valesData
+        .filter((v) => v.status === 'Pendiente')
+        .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const totalComsMes = comisionesData
+        .filter((c) => c.status === 'Aprobado')
+        .reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const totalPagado = salariesData.reduce((acc, curr) => acc + (curr.netPay || 0), 0);
 
     // --- Graficos y metricas ---
@@ -1079,30 +1167,54 @@ function viewDashboard() {
         return Boolean(key && key.year === nowRef.year && key.month === nowRef.month);
     };
 
-    const valesPorAprobar = valesData.filter(v => v.status === 'Pendiente').length;
+    const valesPorAprobar = valesData.filter((v) => v.status === 'Pendiente').length;
     const descuentosMes = descuentosData
-        .filter(d => !d.deleted && isCurrentMonth(d))
+        .filter((d) => !d.deleted && isCurrentMonth(d))
         .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-    const ausenciasMes = ausenciasData.filter(a => isCurrentMonth(a)).length;
-    const cumpleanosMes = employeesData.filter(e => {
+    const ausenciasMes = ausenciasData.filter((a) => isCurrentMonth(a)).length;
+    const cumpleanosMes = employeesData.filter((e) => {
         if (e.status === 'INACTIVO' || !e.dob) return false;
         return Number(String(e.dob).split('-')[1]) === nowRef.month;
     }).length;
 
     const miniCards = [
-        { label: 'Vales por aprobar', value: String(valesPorAprobar), icon: 'ph-ticket', tint: 'text-amber-600 bg-amber-50' },
-        { label: 'Descuentos del mes', value: 'Gs. ' + descuentosMes.toLocaleString(), icon: 'ph-minus-circle', tint: 'text-rose-600 bg-rose-50' },
-        { label: 'Ausencias del mes', value: String(ausenciasMes), icon: 'ph-user-minus', tint: 'text-orange-600 bg-orange-50' },
-        { label: 'Cumpleanos del mes', value: String(cumpleanosMes), icon: 'ph-cake', tint: 'text-pink-600 bg-pink-50' },
+        {
+            label: 'Vales por aprobar',
+            value: String(valesPorAprobar),
+            icon: 'ph-ticket',
+            tint: 'text-amber-600 bg-amber-50',
+        },
+        {
+            label: 'Descuentos del mes',
+            value: 'Gs. ' + descuentosMes.toLocaleString(),
+            icon: 'ph-minus-circle',
+            tint: 'text-rose-600 bg-rose-50',
+        },
+        {
+            label: 'Ausencias del mes',
+            value: String(ausenciasMes),
+            icon: 'ph-user-minus',
+            tint: 'text-orange-600 bg-orange-50',
+        },
+        {
+            label: 'Cumpleanos del mes',
+            value: String(cumpleanosMes),
+            icon: 'ph-cake',
+            tint: 'text-pink-600 bg-pink-50',
+        },
     ];
-    const miniMetrics = miniCards.map(c => `
+    const miniMetrics = miniCards
+        .map(
+            (c) => `
         <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
             <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${c.tint}"><i class="ph-fill ${c.icon} text-lg"></i></div>
             <div class="min-w-0">
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">${c.label}</p>
                 <p class="font-black text-slate-800 text-lg leading-tight truncate">${c.value}</p>
             </div>
-        </div>`).join('');
+        </div>`
+        )
+        .join('');
 
     return `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 fade-in mb-8">
@@ -1214,9 +1326,9 @@ function viewDashboard() {
 }
 function updateDashboardCards() {
     const wSal = document.getElementById('dash-total-pend');
-    if(wSal) wSal.innerText = salariesData.filter(s => s.status === 'Pendiente').length;
+    if (wSal) wSal.innerText = salariesData.filter((s) => s.status === 'Pendiente').length;
     const wEmp = document.getElementById('dash-total-emp');
-    if(wEmp) wEmp.innerText = employeesData.filter(e => e.status !== 'INACTIVO').length;
+    if (wEmp) wEmp.innerText = employeesData.filter((e) => e.status !== 'INACTIVO').length;
 }
 
 /**
@@ -1224,8 +1336,8 @@ function updateDashboardCards() {
  */
 function viewNewEmployee() {
     // Si hay datos en la DB de sucursales, usamos eso. Si no, usamos el fallback estatico.
-    const sourceList = sucursalesData.length > 0 ? sucursalesData.map(s => s.name) : LISTA_SUCURSALES;
-    const optionsHtml = sourceList.map(s => `<option value="${s}">${s}</option>`).join('');
+    const sourceList = sucursalesData.length > 0 ? sucursalesData.map((s) => s.name) : LISTA_SUCURSALES;
+    const optionsHtml = sourceList.map((s) => `<option value="${s}">${s}</option>`).join('');
 
     return `
         <div class="max-w-5xl mx-auto bg-white rounded-[40px] shadow-xl p-10 fade-in border border-slate-100">
@@ -1364,8 +1476,8 @@ function setupEmployeeForm() {
         });
     };
 
-    photoInput.addEventListener('change', async e => {
-        if(e.target.files[0]) {
+    photoInput.addEventListener('change', async (e) => {
+        if (e.target.files[0]) {
             photoBase64 = await compress(e.target.files[0]);
             preview.src = photoBase64;
             preview.classList.remove('hidden');
@@ -1373,11 +1485,11 @@ function setupEmployeeForm() {
         }
     });
 
-    form.addEventListener('submit', async e => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnSave');
         const oldHTML = btn.innerHTML;
-        btn.disabled = true; 
+        btn.disabled = true;
         btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> SINCRONIZANDO...';
 
         const data = new FormData(form);
@@ -1389,29 +1501,29 @@ function setupEmployeeForm() {
         const endDate = parseDateOnly(endDateValue);
 
         if (!startDate) {
-            showToast("Error", "La fecha de ingreso es obligatoria y debe ser valida.");
+            showToast('Error', 'La fecha de ingreso es obligatoria y debe ser valida.');
             restoreButton(btn, oldHTML);
             return;
         }
 
         if (currentStatus === 'INACTIVO' && !endDateValue) {
-            showToast("Error", "Si el funcionario esta inactivo, debe completar la fecha de baja.");
+            showToast('Error', 'Si el funcionario esta inactivo, debe completar la fecha de baja.');
             restoreButton(btn, oldHTML);
             return;
         }
 
         if (currentStatus === 'INACTIVO' && !endDate) {
-            showToast("Error", "La fecha de baja no tiene un formato valido.");
+            showToast('Error', 'La fecha de baja no tiene un formato valido.');
             restoreButton(btn, oldHTML);
             return;
         }
 
         if (endDate && endDate < startDate) {
-            showToast("Error", "La fecha de baja no puede ser anterior a la fecha de ingreso.");
+            showToast('Error', 'La fecha de baja no puede ser anterior a la fecha de ingreso.');
             restoreButton(btn, oldHTML);
             return;
         }
-        
+
         const obj = {
             fullName: data.get('fullName').toUpperCase(),
             dni: data.get('dni'),
@@ -1425,22 +1537,22 @@ function setupEmployeeForm() {
             photo: photoBase64 || preview.src || '',
             status: currentStatus,
             endDate: endDateValue || null,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         };
 
         try {
-            if(empId) {
+            if (empId) {
                 await updateDoc(doc(db, 'employees', empId), obj);
-                showToast("Exito", "Funcionario actualizado.");
+                showToast('Exito', 'Funcionario actualizado.');
             } else {
                 obj.createdAt = serverTimestamp();
                 await addDoc(collection(db, 'employees'), obj);
-                showToast("Exito", "Nuevo funcionario registrado.");
+                showToast('Exito', 'Nuevo funcionario registrado.');
             }
             navigateTo('rrhh_list', 'Lista de Personal');
-        } catch(err) {
+        } catch (err) {
             console.error(err);
-            showToast("Error", "Error al conectar con la base de datos.");
+            showToast('Error', 'Error al conectar con la base de datos.');
             restoreButton(btn, oldHTML);
         }
     });
@@ -1448,20 +1560,20 @@ function setupEmployeeForm() {
 
 function viewEmployeeList() {
     unlockRRHHModalScroll();
-    if(!employeesData.length) {
+    if (!employeesData.length) {
         return `<div class="flex flex-col items-center justify-center py-40 opacity-40">
                 <i class="ph-duotone ph-users-three text-6xl mb-4"></i>
                 <p class="font-black text-xl uppercase">No hay colaboradores registrados</p>
                 </div>`;
     }
-    
-    const sortedEmp = [...employeesData].sort((a,b) => {
-        if(a.status === 'INACTIVO' && b.status !== 'INACTIVO') return 1;
-        if(a.status !== 'INACTIVO' && b.status === 'INACTIVO') return -1;
+
+    const sortedEmp = [...employeesData].sort((a, b) => {
+        if (a.status === 'INACTIVO' && b.status !== 'INACTIVO') return 1;
+        if (a.status !== 'INACTIVO' && b.status === 'INACTIVO') return -1;
         return a.fullName.localeCompare(b.fullName);
     });
-    const auditedEmployees = sortedEmp.map(employee => ({ employee, issues: getEmployeeIntegrityIssues(employee) }));
-    const inconsistentEmployees = auditedEmployees.filter(item => item.issues.length > 0);
+    const auditedEmployees = sortedEmp.map((employee) => ({ employee, issues: getEmployeeIntegrityIssues(employee) }));
+    const inconsistentEmployees = auditedEmployees.filter((item) => item.issues.length > 0);
 
     let html = '<div class="fade-in pb-20 space-y-6">';
     if (inconsistentEmployees.length > 0) {
@@ -1499,37 +1611,53 @@ function viewEmployeeList() {
             </div>
         </div>`;
 
-
     html += '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">';
     auditedEmployees.forEach(({ employee: e, issues }) => {
         const isInactive = e.status === 'INACTIVO';
-        const cardStyle = isInactive ? 'bg-slate-50 border-slate-200 grayscale-[50%] opacity-80' : 'bg-white border-slate-100 hover:-translate-y-1 hover:shadow-2xl';
+        const cardStyle = isInactive
+            ? 'bg-slate-50 border-slate-200 grayscale-[50%] opacity-80'
+            : 'bg-white border-slate-100 hover:-translate-y-1 hover:shadow-2xl';
         const startDateLabel = formatDateDisplay(e.startDate);
         const inactiveEndDateLabel = isInactive ? formatDateDisplay(e.endDate) : '';
         const currentSalary = SalariosModule.getEffectiveSalaryAmountForDate(e, new Date());
         const salaryHistory = SalariosModule.getSalaryHistoryForEmployee(e.id);
-        const issueBadges = issues.map(issue => {
-            const tone = getIntegrityToneClasses(issue.tone);
-            return `<span class="text-[9px] font-black uppercase px-2 py-1 rounded-lg ${tone.badge}">${issue.label}</span>`;
-        }).join('');
-        const issuePanel = issues.length ? `
+        const issueBadges = issues
+            .map((issue) => {
+                const tone = getIntegrityToneClasses(issue.tone);
+                return `<span class="text-[9px] font-black uppercase px-2 py-1 rounded-lg ${tone.badge}">${issue.label}</span>`;
+            })
+            .join('');
+        const issuePanel = issues.length
+            ? `
             <div class="mt-4 p-3 rounded-2xl border ${getIntegrityToneClasses(issues[0].tone).panel}">
                 <div class="flex flex-wrap gap-2 mb-2">${issueBadges}</div>
                 <div class="space-y-1">
-                    ${issues.map(issue => `<p class="text-[11px] font-bold">${issue.detail}</p>`).join('')}
+                    ${issues.map((issue) => `<p class="text-[11px] font-bold">${issue.detail}</p>`).join('')}
                 </div>
-            </div>` : '';
+            </div>`
+            : '';
         const isRRHH = currentUserRole === 'RRHH';
 
         html += `
-            <div data-personal-card data-search="${[e.fullName, e.dni, e.position, e.branch].filter(Boolean).join(' ').toLowerCase().replace(/["'<>&]/g, ' ')}" class="rounded-[32px] shadow-lg shadow-slate-200/50 border overflow-hidden group relative transition-all duration-300 ${cardStyle}">
+            <div data-personal-card data-search="${[e.fullName, e.dni, e.position, e.branch]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase()
+                .replace(
+                    /["'<>&]/g,
+                    ' '
+                )}" class="rounded-[32px] shadow-lg shadow-slate-200/50 border overflow-hidden group relative transition-all duration-300 ${cardStyle}">
                 <div class="absolute top-4 right-4 flex flex-col gap-2 z-20 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                    ${isRRHH
-                        ? (!isInactive ? `<button onclick="deactivateEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-rose-600 p-2.5 rounded-xl shadow-lg hover:bg-rose-600 hover:text-white transition-all" title="Dar de baja"><i class="ph-bold ph-user-minus"></i></button>` : '')
-                        : `
+                    ${
+                        isRRHH
+                            ? !isInactive
+                                ? `<button onclick="deactivateEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-rose-600 p-2.5 rounded-xl shadow-lg hover:bg-rose-600 hover:text-white transition-all" title="Dar de baja"><i class="ph-bold ph-user-minus"></i></button>`
+                                : ''
+                            : `
                     <button onclick="editEmployee('${e.id}')" class="bg-white/90 backdrop-blur text-indigo-600 p-2.5 rounded-xl shadow-lg hover:bg-indigo-600 hover:text-white transition-all"><i class="ph-bold ph-pencil-simple"></i></button>
                     ${!isInactive ? `<button onclick="openSalaryIncreaseModal('${e.id}')" class="bg-white/90 backdrop-blur text-emerald-600 p-2.5 rounded-xl shadow-lg hover:bg-emerald-600 hover:text-white transition-all" title="Aumentar salario"><i class="ph-bold ph-arrow-fat-up"></i></button>` : ''}
-                    <button onclick="deleteEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-red-500 p-2.5 rounded-xl shadow-lg hover:bg-red-500 hover:text-white transition-all"><i class="ph-bold ph-trash"></i></button>`}
+                    <button onclick="deleteEmployee('${e.id}', '${e.fullName}')" class="bg-white/90 backdrop-blur text-red-500 p-2.5 rounded-xl shadow-lg hover:bg-red-500 hover:text-white transition-all"><i class="ph-bold ph-trash"></i></button>`
+                    }
                 </div>
 
                 <div class="h-48 bg-slate-100 relative overflow-hidden">
@@ -1565,7 +1693,9 @@ function viewEmployeeList() {
                 </div>
             </div>`;
     });
-    return html + `</div>
+    return (
+        html +
+        `</div>
         <div id="personalEmpty" class="hidden flex flex-col items-center justify-center py-24 opacity-60 fade-in">
             <i class="ph-duotone ph-user-minus text-5xl text-slate-300 mb-4"></i>
             <p class="font-black text-slate-500 uppercase tracking-widest">Sin resultados</p>
@@ -1621,11 +1751,14 @@ function viewEmployeeList() {
                 </div>
             </div>
         </div>
-    </div>`;
+    </div>`
+    );
 }
 
 window.filterPersonalList = (value) => {
-    const term = String(value || '').trim().toLowerCase();
+    const term = String(value || '')
+        .trim()
+        .toLowerCase();
     const cards = document.querySelectorAll('[data-personal-card]');
     let visible = 0;
 
@@ -1641,19 +1774,16 @@ window.filterPersonalList = (value) => {
 
     const counter = document.getElementById('personalCount');
     if (counter) {
-        counter.innerText = term
-            ? `${visible} de ${cards.length} colaboradores`
-            : `${cards.length} colaboradores`;
+        counter.innerText = term ? `${visible} de ${cards.length} colaboradores` : `${cards.length} colaboradores`;
     }
 };
-
 
 function viewAdminSucursales() {
     let listHtml = '';
     if (sucursalesData.length === 0) {
         listHtml = `<div class="col-span-full text-center py-10 opacity-40 font-bold">No hay sucursales registradas en la base de datos.<br>Anade una sucursal para poder gestionar los horarios de entrada y salida.</div>`;
     } else {
-        sucursalesData.forEach(suc => {
+        sucursalesData.forEach((suc) => {
             listHtml += `
             <div class="bg-white p-6 rounded-[25px] border border-slate-100 shadow-sm flex justify-between items-center group hover:shadow-md transition-all">
                 <div>
@@ -1712,46 +1842,53 @@ window.saveSucursal = async (e) => {
     const name = document.getElementById('sucName').value.toUpperCase();
     const entrada = document.getElementById('sucEntrada').value;
     const salida = document.getElementById('sucSalida').value;
-    
+
     const btn = document.getElementById('btnSaveSuc');
     const oldTxt = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = "GUARDANDO...";
+    btn.disabled = true;
+    btn.innerHTML = 'GUARDANDO...';
 
     try {
-        if(id) {
-            await updateDoc(doc(db, "sucursales", id), { name, entrada, salida });
-            showToast("Actualizado", "Sucursal modificada con exito.");
+        if (id) {
+            await updateDoc(doc(db, 'sucursales', id), { name, entrada, salida });
+            showToast('Actualizado', 'Sucursal modificada con exito.');
         } else {
-            await addDoc(collection(db, "sucursales"), { name, entrada, salida, createdAt: serverTimestamp() });
-            showToast("Guardado", "Nueva sucursal registrada.");
+            await addDoc(collection(db, 'sucursales'), { name, entrada, salida, createdAt: serverTimestamp() });
+            showToast('Guardado', 'Nueva sucursal registrada.');
         }
         document.getElementById('sucursalForm').reset();
         document.getElementById('sucId').value = '';
         btn.innerHTML = '<i class="ph-bold ph-floppy-disk text-lg"></i> GUARDAR SUCURSAL';
-    } catch(err) {
-        showToast("Error", "No se pudo guardar la sucursal.");
+    } catch (err) {
+        showToast('Error', 'No se pudo guardar la sucursal.');
     } finally {
         btn.disabled = false;
     }
 };
 
 window.editSucursal = (id) => {
-    const suc = sucursalesData.find(s => s.id === id);
-    if(suc) {
+    const suc = sucursalesData.find((s) => s.id === id);
+    if (suc) {
         document.getElementById('sucId').value = suc.id;
         document.getElementById('sucName').value = suc.name;
         document.getElementById('sucEntrada').value = suc.entrada || '';
         document.getElementById('sucSalida').value = suc.salida || '';
-        document.getElementById('btnSaveSuc').innerHTML = '<i class="ph-bold ph-pencil text-lg"></i> ACTUALIZAR SUCURSAL';
+        document.getElementById('btnSaveSuc').innerHTML =
+            '<i class="ph-bold ph-pencil text-lg"></i> ACTUALIZAR SUCURSAL';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 };
 
 window.deleteSucursal = async (id, name) => {
-    const confirmado = await uiConfirm({ title: 'Eliminar sucursal', message: `Seguro que desea eliminar la sucursal ${name}?`, tone: 'danger', confirmText: 'Eliminar' });
+    const confirmado = await uiConfirm({
+        title: 'Eliminar sucursal',
+        message: `Seguro que desea eliminar la sucursal ${name}?`,
+        tone: 'danger',
+        confirmText: 'Eliminar',
+    });
     if (confirmado) {
-        await deleteDoc(doc(db, "sucursales", id));
-        showToast("Eliminado", "Sucursal borrada del sistema.");
+        await deleteDoc(doc(db, 'sucursales', id));
+        showToast('Eliminado', 'Sucursal borrada del sistema.');
     }
 };
 
@@ -1761,7 +1898,7 @@ window.deleteSucursal = async (id, name) => {
 
 function viewAdminDescuentos() {
     const grouped = {};
-    descuentosData.forEach(d => {
+    descuentosData.forEach((d) => {
         if (!grouped[d.employeeId]) grouped[d.employeeId] = [];
         grouped[d.employeeId].push(d);
     });
@@ -1818,16 +1955,16 @@ function viewAdminDescuentos() {
         <h3 class="text-xl font-black text-slate-700 mt-10 px-2 flex items-center gap-2"><i class="ph ph-clock-counter-clockwise"></i> Historial de Descuentos por Funcionario</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
 
-    if(Object.keys(grouped).length === 0) {
+    if (Object.keys(grouped).length === 0) {
         html += `<div class="col-span-full text-center py-20 text-slate-300 font-bold border-2 border-dashed border-slate-200 rounded-[40px]">No hay penalizaciones registradas.</div>`;
     }
 
-    Object.keys(grouped).forEach(empId => {
-        const emp = employeesData.find(e => e.id === empId);
+    Object.keys(grouped).forEach((empId) => {
+        const emp = employeesData.find((e) => e.id === empId);
         const name = emp ? emp.fullName : 'S/N';
-        const lista = grouped[empId].sort((a,b) => {
-            const da = a.date ? new Date(a.date) : (a.createdAt ? a.createdAt.toDate() : new Date());
-            const db = b.date ? new Date(b.date) : (b.createdAt ? b.createdAt.toDate() : new Date());
+        const lista = grouped[empId].sort((a, b) => {
+            const da = a.date ? new Date(a.date) : a.createdAt ? a.createdAt.toDate() : new Date();
+            const db = b.date ? new Date(b.date) : b.createdAt ? b.createdAt.toDate() : new Date();
             return db - da;
         });
 
@@ -1852,18 +1989,19 @@ function viewAdminDescuentos() {
                         <button onclick="document.getElementById('dhist-${empId}').classList.add('hidden')" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"><i class="ph-bold ph-x text-lg"></i></button>
                     </div>
                     <div class="space-y-4">
-                        ${lista.map(d => {
-                            let fechaFmt = '-';
-                            if (d.date) {
-                                const [y, m, day] = d.date.split('-');
-                                fechaFmt = `${day}/${m}/${y}`;
-                            } else if (d.createdAt) {
-                                const dateRaw = d.createdAt.toDate().toISOString().split('T')[0];
-                                const [y, m, day] = dateRaw.split('-');
-                                fechaFmt = `${day}/${m}/${y}`;
-                            }
-                            
-                            return `
+                        ${lista
+                            .map((d) => {
+                                let fechaFmt = '-';
+                                if (d.date) {
+                                    const [y, m, day] = d.date.split('-');
+                                    fechaFmt = `${day}/${m}/${y}`;
+                                } else if (d.createdAt) {
+                                    const dateRaw = d.createdAt.toDate().toISOString().split('T')[0];
+                                    const [y, m, day] = dateRaw.split('-');
+                                    fechaFmt = `${day}/${m}/${y}`;
+                                }
+
+                                return `
                             <div class="p-5 bg-slate-50 rounded-[25px] border border-slate-100 flex justify-between items-center group/item hover:bg-white transition-all">
                                 <div>
                                     <p class="font-black text-red-600 text-xl">- Gs. ${Number(d.amount).toLocaleString()}</p>
@@ -1874,7 +2012,8 @@ function viewAdminDescuentos() {
                                     <span class="text-[9px] font-black px-3 py-1 rounded-full border bg-white text-slate-500 border-slate-200 uppercase">${d.status || 'Activo'}</span>
                                 </div>
                             </div>`;
-                        }).join('')}
+                            })
+                            .join('')}
                     </div>
                 </div>
             </div>`;
@@ -1890,19 +2029,23 @@ window.filterAdminEmployees = (text) => {
     const list = document.getElementById('adminEmpList');
     const inputId = document.getElementById('adminDescEmpId');
     const inputSearch = document.getElementById('adminDescSearch');
-    
-    list.innerHTML = '';
-    if(text.length === 0) { list.classList.add('hidden'); return; }
 
-    const matches = employeesData.filter(e => e.fullName.toLowerCase().includes(text.toLowerCase()));
-    
-    if(matches.length > 0) {
+    list.innerHTML = '';
+    if (text.length === 0) {
+        list.classList.add('hidden');
+        return;
+    }
+
+    const matches = employeesData.filter((e) => e.fullName.toLowerCase().includes(text.toLowerCase()));
+
+    if (matches.length > 0) {
         list.classList.remove('hidden');
-        matches.forEach(e => {
+        matches.forEach((e) => {
             const div = document.createElement('div');
-            div.className = "p-3 hover:bg-red-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0";
+            div.className =
+                'p-3 hover:bg-red-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0';
             div.innerText = e.fullName;
-            if(e.status === 'INACTIVO') {
+            if (e.status === 'INACTIVO') {
                 div.innerHTML += ' <span class="text-[9px] text-rose-500 font-black ml-2">(BAJA)</span>';
             }
             div.onclick = () => {
@@ -1919,7 +2062,10 @@ window.filterAdminEmployees = (text) => {
 
 window.formatCurrencyInput = (input) => {
     let val = input.value.replace(/\D/g, '');
-    if(val === '') { input.value = ''; return; }
+    if (val === '') {
+        input.value = '';
+        return;
+    }
     input.value = new Intl.NumberFormat('es-PY').format(val);
 };
 
@@ -1929,39 +2075,40 @@ window.saveAdminDescuento = async () => {
     const reason = document.getElementById('adminDescReason').value;
     const manualDate = document.getElementById('adminDescDate').value;
 
-    if(!empId) return showToast("Error", "Seleccione un funcionario de la lista.");
-    if(!rawAmount || Number(rawAmount) <= 0) return showToast("Error", "El monto debe ser mayor a 0.");
-    if(!reason) return showToast("Error", "Defina el motivo del descuento.");
-    
+    if (!empId) return showToast('Error', 'Seleccione un funcionario de la lista.');
+    if (!rawAmount || Number(rawAmount) <= 0) return showToast('Error', 'El monto debe ser mayor a 0.');
+    if (!reason) return showToast('Error', 'Defina el motivo del descuento.');
+
     const finalDate = manualDate || new Date().toISOString().split('T')[0];
 
     const btn = document.querySelector('button[onclick="saveAdminDescuento()"]');
     const oldText = btn.innerText;
-    btn.disabled = true; btn.innerText = "PROCESANDO...";
+    btn.disabled = true;
+    btn.innerText = 'PROCESANDO...';
 
     try {
-        await addDoc(collection(db, "descuentos"), {
+        await addDoc(collection(db, 'descuentos'), {
             employeeId: empId,
             amount: Number(rawAmount),
             reason: reason,
-            date: finalDate, 
+            date: finalDate,
             createdAt: serverTimestamp(),
-            status: 'Aplicado'
+            status: 'Aplicado',
         });
-        
-        showToast("Registrado", "Deduccion aplicada correctamente.");
-        
+
+        showToast('Registrado', 'Deduccion aplicada correctamente.');
+
         document.getElementById('adminDescEmpId').value = '';
         document.getElementById('adminDescSearch').value = '';
         document.getElementById('adminDescAmount').value = '';
         document.getElementById('adminDescReason').value = '';
         document.getElementById('adminDescDate').value = '';
-
-    } catch(e) { 
+    } catch (e) {
         console.error(e);
-        showToast("Error", "No se pudo sincronizar el descuento."); 
+        showToast('Error', 'No se pudo sincronizar el descuento.');
     } finally {
-        btn.disabled = false; btn.innerText = oldText;
+        btn.disabled = false;
+        btn.innerText = oldText;
     }
 };
 
@@ -1983,7 +2130,7 @@ window.exportEmployeesCsv = () => {
 };
 
 window.exportDescuentosCsv = () => {
-    const empName = (id) => employeesData.find(e => e.id === id)?.fullName || id;
+    const empName = (id) => employeesData.find((e) => e.id === id)?.fullName || id;
     const columns = [
         { label: 'Funcionario', value: (d) => empName(d.employeeId) },
         { label: 'Fecha', value: (d) => d.date || '' },
@@ -1991,7 +2138,11 @@ window.exportDescuentosCsv = () => {
         { label: 'Monto', value: (d) => Number(d.amount) || 0 },
         { label: 'Estado', value: (d) => d.status || '' },
     ];
-    Export.downloadCsv(`descuentos-${Export.dateStamp()}`, columns, descuentosData.filter(d => !d.deleted));
+    Export.downloadCsv(
+        `descuentos-${Export.dateStamp()}`,
+        columns,
+        descuentosData.filter((d) => !d.deleted)
+    );
     showToast('Exportado', 'CSV de descuentos generado.', 'success');
 };
 
@@ -1999,54 +2150,81 @@ window.exportDescuentosCsv = () => {
  * CUMPLEANOS DEL MES
  */
 function viewBirthdays() {
-    const monthNames = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+    const monthNames = [
+        'ENERO',
+        'FEBRERO',
+        'MARZO',
+        'ABRIL',
+        'MAYO',
+        'JUNIO',
+        'JULIO',
+        'AGOSTO',
+        'SEPTIEMBRE',
+        'OCTUBRE',
+        'NOVIEMBRE',
+        'DICIEMBRE',
+    ];
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentDay = now.getDate();
 
     const birthdayEntries = employeesData
-        .filter(emp => emp.dob && emp.status !== 'INACTIVO')
-        .map(emp => {
+        .filter((emp) => emp.dob && emp.status !== 'INACTIVO')
+        .map((emp) => {
             const [, monthRaw, dayRaw] = emp.dob.split('-');
             const month = Number(monthRaw);
             const day = Number(dayRaw);
             if (!month || !day) return null;
 
-            const nextBirthdayYear = (month < currentMonth || (month === currentMonth && day < currentDay))
-                ? now.getFullYear() + 1
-                : now.getFullYear();
+            const nextBirthdayYear =
+                month < currentMonth || (month === currentMonth && day < currentDay)
+                    ? now.getFullYear() + 1
+                    : now.getFullYear();
             const nextBirthday = new Date(nextBirthdayYear, month - 1, day);
-            const diffDays = Math.round((new Date(nextBirthdayYear, month - 1, day) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(
+                (new Date(nextBirthdayYear, month - 1, day) -
+                    new Date(now.getFullYear(), now.getMonth(), now.getDate())) /
+                    (1000 * 60 * 60 * 24)
+            );
 
             return {
                 ...emp,
                 birthMonth: month,
                 birthDay: day,
                 nextBirthday,
-                diffDays
+                diffDays,
             };
         })
         .filter(Boolean)
         .sort((a, b) => a.nextBirthday - b.nextBirthday);
 
     const birthdaysThisMonth = birthdayEntries
-        .filter(item => item.birthMonth === currentMonth)
+        .filter((item) => item.birthMonth === currentMonth)
         .sort((a, b) => a.birthDay - b.birthDay);
 
-    const birthdaysToday = birthdayEntries.filter(item => item.diffDays === 0);
-    const birthdaysThisWeek = birthdayEntries.filter(item => item.diffDays >= 0 && item.diffDays <= 7);
+    const birthdaysToday = birthdayEntries.filter((item) => item.diffDays === 0);
+    const birthdaysThisWeek = birthdayEntries.filter((item) => item.diffDays >= 0 && item.diffDays <= 7);
     const nextBirthday = birthdayEntries[0] || null;
 
     const renderBirthdayCard = (item, mode = 'month') => {
-        const accentClass = item.diffDays === 0
-            ? 'from-amber-400 via-orange-400 to-rose-500'
-            : (item.diffDays <= 7 ? 'from-pink-500 via-rose-500 to-orange-400' : 'from-fuchsia-500 via-pink-500 to-rose-500');
-        const badgeText = item.diffDays === 0
-            ? 'HOY'
-            : (item.diffDays === 1 ? 'MANANA' : (item.diffDays > 1 && item.diffDays <= 7 ? `EN ${item.diffDays} DIAS` : monthNames[item.birthMonth - 1]));
-        const subtitle = mode === 'upcoming'
-            ? `Proximo cumple: ${String(item.birthDay).padStart(2, '0')}/${String(item.birthMonth).padStart(2, '0')}`
-            : `Cumple el ${String(item.birthDay).padStart(2, '0')} de ${monthNames[item.birthMonth - 1]}`;
+        const accentClass =
+            item.diffDays === 0
+                ? 'from-amber-400 via-orange-400 to-rose-500'
+                : item.diffDays <= 7
+                  ? 'from-pink-500 via-rose-500 to-orange-400'
+                  : 'from-fuchsia-500 via-pink-500 to-rose-500';
+        const badgeText =
+            item.diffDays === 0
+                ? 'HOY'
+                : item.diffDays === 1
+                  ? 'MANANA'
+                  : item.diffDays > 1 && item.diffDays <= 7
+                    ? `EN ${item.diffDays} DIAS`
+                    : monthNames[item.birthMonth - 1];
+        const subtitle =
+            mode === 'upcoming'
+                ? `Proximo cumple: ${String(item.birthDay).padStart(2, '0')}/${String(item.birthMonth).padStart(2, '0')}`
+                : `Cumple el ${String(item.birthDay).padStart(2, '0')} de ${monthNames[item.birthMonth - 1]}`;
 
         return `
             <article class="bg-white rounded-[32px] border border-pink-100 shadow-lg overflow-hidden group hover:-translate-y-1 hover:shadow-2xl transition-all">
@@ -2076,11 +2254,14 @@ function viewBirthdays() {
     };
 
     const upcomingGrid = birthdayEntries.length
-        ? birthdayEntries.slice(0, 6).map(item => renderBirthdayCard(item, 'upcoming')).join('')
+        ? birthdayEntries
+              .slice(0, 6)
+              .map((item) => renderBirthdayCard(item, 'upcoming'))
+              .join('')
         : `<div class="md:col-span-2 xl:col-span-3 bg-white border border-dashed border-slate-200 rounded-[32px] p-10 text-center text-slate-400 font-bold">No hay cumpleanos cargados para mostrar.</div>`;
 
     const monthGrid = birthdaysThisMonth.length
-        ? birthdaysThisMonth.map(item => renderBirthdayCard(item, 'month')).join('')
+        ? birthdaysThisMonth.map((item) => renderBirthdayCard(item, 'month')).join('')
         : `<div class="md:col-span-2 xl:col-span-3 bg-white border border-dashed border-pink-200 rounded-[32px] p-12 text-center">
                 <i class="ph-duotone ph-cake text-5xl text-pink-200 mb-4"></i>
                 <p class="font-black text-slate-700 text-xl">No hay cumpleanos de activos en ${monthNames[currentMonth - 1]}.</p>
@@ -2108,7 +2289,7 @@ function viewBirthdays() {
                 <div class="bg-white rounded-[28px] border border-slate-100 p-5 shadow-sm">
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Celebran hoy</p>
                     <p class="text-3xl font-black text-slate-800 mt-2">${birthdaysToday.length}</p>
-                    <p class="text-xs font-bold text-slate-500 mt-1">${birthdaysToday.length ? birthdaysToday.map(item => item.fullName).join(', ') : 'Sin festejos hoy'}</p>
+                    <p class="text-xs font-bold text-slate-500 mt-1">${birthdaysToday.length ? birthdaysToday.map((item) => item.fullName).join(', ') : 'Sin festejos hoy'}</p>
                 </div>
                 <div class="bg-white rounded-[28px] border border-slate-100 p-5 shadow-sm">
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Proximos 7 dias</p>
@@ -2160,20 +2341,21 @@ function inferToastType(title = '') {
     const text = String(title).toLowerCase();
     if (/(error|fallo|no se pudo|invalido|denegad|rechaz)/.test(text)) return 'error';
     if (/(aviso|advertencia|atencion|pendiente)/.test(text)) return 'warning';
-    if (/(exito|exitoso|guardad|registrad|actualizad|eliminad|completad|aprobad|exportad|ok)/.test(text)) return 'success';
+    if (/(exito|exitoso|guardad|registrad|actualizad|eliminad|completad|aprobad|exportad|ok)/.test(text))
+        return 'success';
     return 'info';
 }
 
 function showToast(title, msg, type) {
     const t = document.getElementById('toast');
-    if(!t) return;
-    
+    if (!t) return;
+
     const titleEl = document.getElementById('toastTitle');
     const msgEl = document.getElementById('toastMessage');
-    
+
     titleEl.innerText = title;
     msgEl.innerText = msg;
-    
+
     const resolvedType = type || inferToastType(title);
     const palette = TOAST_STYLES[resolvedType] || TOAST_STYLES.info;
     const card = document.getElementById('toastCard');
@@ -2181,10 +2363,12 @@ function showToast(title, msg, type) {
     const icon = document.getElementById('toastIcon');
 
     if (card) {
-        card.className = 'bg-white border-l-[6px] shadow-2xl rounded-2xl p-4 sm:p-5 flex items-center gap-4 w-[min(92vw,360px)]';
+        card.className =
+            'bg-white border-l-[6px] shadow-2xl rounded-2xl p-4 sm:p-5 flex items-center gap-4 w-[min(92vw,360px)]';
         card.classList.add(palette.border);
     }
-    if (iconWrap) iconWrap.className = `w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${palette.wrap}`;
+    if (iconWrap)
+        iconWrap.className = `w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${palette.wrap}`;
     if (icon) icon.className = `${palette.icon} text-xl`;
 
     t.classList.remove('hidden');
@@ -2193,7 +2377,7 @@ function showToast(title, msg, type) {
         void card.offsetWidth;
         card.classList.add('animate-toast-in');
     }
-    
+
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => {
         t.classList.add('hidden');
@@ -2233,9 +2417,14 @@ function viewAdminUsers() {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs font-bold text-slate-600">
-                        ${visibleUsers.length === 0 ? `
+                        ${
+                            visibleUsers.length === 0
+                                ? `
                             <tr><td colspan="4" class="p-8 text-center text-slate-400">No hay usuarios adicionales cargados en la base de datos.</td></tr>
-                        ` : visibleUsers.map(u => `
+                        `
+                                : visibleUsers
+                                      .map(
+                                          (u) => `
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="p-5 font-black text-slate-800 flex items-center gap-3">
                                     <div class="w-9 h-9 rounded-xl ${u.role === 'RRHH' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold">
@@ -2258,7 +2447,10 @@ function viewAdminUsers() {
                                     </button>
                                 </td>
                             </tr>
-                        `).join('')}
+                        `
+                                      )
+                                      .join('')
+                        }
                     </tbody>
                 </table>
             </div>
@@ -2322,8 +2514,12 @@ function viewAdminUsers() {
 function viewAdminAprobacionPagos() {
     if (currentUserRole !== 'ADMIN') return '<div class="p-8 text-center text-red-500 font-bold">Acceso Denegado</div>';
 
-    const valesPendientes = valesData.filter(v => v.estadoAprobacion === 'PENDIENTE_RENDICION' && !v.deleted).map(v => ({ ...v, _coll: 'vales', _type: 'VALE' }));
-    const salariesPendientes = salariesData.filter(s => s.estadoAprobacion === 'PENDIENTE_RENDICION' && !s.deleted).map(s => ({ ...s, _coll: 'salaries', _type: s.type === 'INDIVIDUAL' ? 'ADELANTO / PAGO' : 'LIQUIDACION' }));
+    const valesPendientes = valesData
+        .filter((v) => v.estadoAprobacion === 'PENDIENTE_RENDICION' && !v.deleted)
+        .map((v) => ({ ...v, _coll: 'vales', _type: 'VALE' }));
+    const salariesPendientes = salariesData
+        .filter((s) => s.estadoAprobacion === 'PENDIENTE_RENDICION' && !s.deleted)
+        .map((s) => ({ ...s, _coll: 'salaries', _type: s.type === 'INDIVIDUAL' ? 'ADELANTO / PAGO' : 'LIQUIDACION' }));
 
     const pendientes = [...valesPendientes, ...salariesPendientes].sort((a, b) => {
         const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.date || 0);
@@ -2362,15 +2558,21 @@ function viewAdminAprobacionPagos() {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs font-bold text-slate-600">
-                        ${pendientes.length === 0 ? `
+                        ${
+                            pendientes.length === 0
+                                ? `
                             <tr><td colspan="5" class="p-10 text-center text-slate-400">No hay pagos ni vales pendientes de rendición.</td></tr>
-                        ` : pendientes.map(p => {
-                            const emp = employeesData.find(e => e.id === p.employeeId);
-                            const name = p.employeeName || (emp ? emp.fullName : 'S/N');
-                            const amount = Number(p.amount || p.netPay || 0);
-                            const emisor = p.creadoPorEmail || p.createdBy || 'Usuario RRHH';
-                            const dateStr = p.createdAt?.toDate ? p.createdAt.toDate().toLocaleString('es-PY') : (p.date || 'Reciente');
-                            return `
+                        `
+                                : pendientes
+                                      .map((p) => {
+                                          const emp = employeesData.find((e) => e.id === p.employeeId);
+                                          const name = p.employeeName || (emp ? emp.fullName : 'S/N');
+                                          const amount = Number(p.amount || p.netPay || 0);
+                                          const emisor = p.creadoPorEmail || p.createdBy || 'Usuario RRHH';
+                                          const dateStr = p.createdAt?.toDate
+                                              ? p.createdAt.toDate().toLocaleString('es-PY')
+                                              : p.date || 'Reciente';
+                                          return `
                                 <tr class="hover:bg-slate-50/50 transition-colors">
                                     <td class="p-5">
                                         <div class="font-black text-slate-800">${dateStr}</div>
@@ -2392,7 +2594,9 @@ function viewAdminAprobacionPagos() {
                                     </td>
                                 </tr>
                             `;
-                        }).join('')}
+                                      })
+                                      .join('')
+                        }
                     </tbody>
                 </table>
             </div>
@@ -2408,7 +2612,7 @@ window.closeUserCreateModal = () => {
     document.getElementById('userCreateModal')?.classList.add('hidden');
 };
 window.openEditUserModal = (id) => {
-    const u = usersData.find(x => x.id === id);
+    const u = usersData.find((x) => x.id === id);
     if (!u) return;
     document.getElementById('editUserId').value = u.id;
     document.getElementById('editUserFullName').value = u.fullName || '';
@@ -2426,17 +2630,19 @@ window.saveNewUser = async (e) => {
     const role = document.getElementById('userRoleInput').value;
     const btn = document.getElementById('btnSubmitUser');
 
-    btn.disabled = true; btn.innerText = "CREANDO...";
+    btn.disabled = true;
+    btn.innerText = 'CREANDO...';
     try {
         await createUser({ email, password, fullName, role });
-        showToast("Exito", `Usuario ${email} creado con rol ${role}`);
+        showToast('Exito', `Usuario ${email} creado con rol ${role}`);
         window.closeUserCreateModal();
         document.getElementById('createUserForm').reset();
     } catch (err) {
         console.error(err);
-        showToast("Error", err.message || "No se pudo crear el usuario");
+        showToast('Error', err.message || 'No se pudo crear el usuario');
     } finally {
-        btn.disabled = false; btn.innerText = "CREAR USUARIO";
+        btn.disabled = false;
+        btn.innerText = 'CREAR USUARIO';
     }
 };
 
@@ -2446,28 +2652,35 @@ window.saveEditUser = async (e) => {
     const fullName = document.getElementById('editUserFullName').value.trim();
     const btn = document.getElementById('btnSubmitEditUser');
 
-    btn.disabled = true; btn.innerText = "GUARDANDO...";
+    btn.disabled = true;
+    btn.innerText = 'GUARDANDO...';
     try {
         const patch = { fullName, updatedAt: serverTimestamp() };
         await updateDoc(doc(db, 'users', id), patch);
-        showToast("Exito", "Usuario modificado correctamente");
+        showToast('Exito', 'Usuario modificado correctamente');
         window.closeUserEditModal();
     } catch (err) {
         console.error(err);
-        showToast("Error", "Error al actualizar usuario");
+        showToast('Error', 'Error al actualizar usuario');
     } finally {
-        btn.disabled = false; btn.innerText = "GUARDAR CAMBIOS";
+        btn.disabled = false;
+        btn.innerText = 'GUARDAR CAMBIOS';
     }
 };
 
 window.deleteUser = async (id, email) => {
-    const confirmado = await uiConfirm({ title: 'Eliminar usuario', message: `Eliminar usuario ${email}?`, tone: 'danger', confirmText: 'Eliminar' });
+    const confirmado = await uiConfirm({
+        title: 'Eliminar usuario',
+        message: `Eliminar usuario ${email}?`,
+        tone: 'danger',
+        confirmText: 'Eliminar',
+    });
     if (!confirmado) return;
     try {
         await deleteDoc(doc(db, 'users', id));
-        showToast("Eliminado", "Usuario removido");
+        showToast('Eliminado', 'Usuario removido');
     } catch (err) {
-        showToast("Error", "No se pudo eliminar");
+        showToast('Error', 'No se pudo eliminar');
     }
 };
 
@@ -2476,30 +2689,35 @@ window.aprobarRendicionPago = async (collName, docId) => {
         await updateDoc(doc(db, collName, docId), {
             estadoAprobacion: 'APROBADO',
             aprobadoPorAdmin: auth.currentUser?.email || 'Admin',
-            fechaAprobacion: serverTimestamp()
+            fechaAprobacion: serverTimestamp(),
         });
-        showToast("Exito", "Rendicion aprobada por Administracion");
+        showToast('Exito', 'Rendicion aprobada por Administracion');
     } catch (err) {
         console.error(err);
-        showToast("Error", "No se pudo aprobar la rendicion");
+        showToast('Error', 'No se pudo aprobar la rendicion');
     }
 };
 
 window.reimprimirTicketRendicion = (collName, docId) => {
     let item;
-    if (collName === 'vales') item = valesData.find(v => v.id === docId);
-    else item = salariesData.find(s => s.id === docId);
+    if (collName === 'vales') item = valesData.find((v) => v.id === docId);
+    else item = salariesData.find((s) => s.id === docId);
     if (!item) return;
 
-    const emp = employeesData.find(e => e.id === item.employeeId);
+    const emp = employeesData.find((e) => e.id === item.employeeId);
     printTicket({
         sucursal: item.employeeBranch || emp?.branch || 'MATRIZ',
         employeeName: item.employeeName || emp?.fullName || '',
         employeePosition: item.employeePosition || emp?.position || '',
         paymentCode: item.paymentCode || 'RENDICION',
-        type: collName === 'vales' ? 'VALE / ADELANTO' : (item.type === 'INDIVIDUAL' ? 'ADELANTO / PAGO' : 'LIQUIDACION DE SUELDO'),
+        type:
+            collName === 'vales'
+                ? 'VALE / ADELANTO'
+                : item.type === 'INDIVIDUAL'
+                  ? 'ADELANTO / PAGO'
+                  : 'LIQUIDACION DE SUELDO',
         detail: item.reason || item.details || '',
         amount: Number(item.amount || item.netPay || 0),
-        doubleTicket: true
-    }).catch(err => console.error(err));
+        doubleTicket: true,
+    }).catch((err) => console.error(err));
 };

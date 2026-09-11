@@ -23,7 +23,9 @@ await sharp(source)
 await rename(temp, source);
 
 const after = await stat(source);
-console.log(`Optimizado: ${(after.size / 1024).toFixed(0)} KB (-${(100 - (after.size / before.size) * 100).toFixed(0)}%)`);
+console.log(
+    `Optimizado: ${(after.size / 1024).toFixed(0)} KB (-${(100 - (after.size / before.size) * 100).toFixed(0)}%)`
+);
 
 // 2) Iconos PWA
 const iconsDir = join(pub, 'static', 'icons');

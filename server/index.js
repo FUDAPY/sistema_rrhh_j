@@ -7,13 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { connectDb } from './db.js';
-import {
-    listDocuments,
-    createDocumentWithId,
-    updateDocument,
-    deleteDocument,
-    newId,
-} from './store.js';
+import { listDocuments, createDocumentWithId, updateDocument, deleteDocument, newId } from './store.js';
 import {
     verifyCredentials,
     signToken,
@@ -218,4 +212,3 @@ connectDb()
         console.error('No se pudo iniciar (MongoDB):', error.message);
         process.exit(1);
     });
-

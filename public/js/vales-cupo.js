@@ -1,8 +1,8 @@
 // public/js/vales-cupo.js
 // Regla de cupo de vales (40% del salario). Fuente unica para el panel y el portal publico.
 
-export const VALE_LIMIT_RATE = 0.40;      // 40% del salario vigente
-export const VALE_MIN_AVAILABLE = 1000;   // por debajo de esto, cupo agotado
+export const VALE_LIMIT_RATE = 0.4; // 40% del salario vigente
+export const VALE_MIN_AVAILABLE = 1000; // por debajo de esto, cupo agotado
 
 export function getValeLimit(salary) {
     return (Number(salary) || 0) * VALE_LIMIT_RATE;
@@ -10,7 +10,9 @@ export function getValeLimit(salary) {
 
 // Normaliza el estado (evita falsos negativos por mayusculas/espacios)
 export function normalizeValeStatus(status) {
-    return String(status || '').trim().toLowerCase();
+    return String(status || '')
+        .trim()
+        .toLowerCase();
 }
 
 export function resolveValeDate(vale) {
@@ -43,8 +45,10 @@ export function getValesConsumidos(vales = [], employeeId, referenceDate = new D
 }
 
 export function getValeUsedAmount(vales = [], employeeId, referenceDate = new Date()) {
-    return getValesConsumidos(vales, employeeId, referenceDate)
-        .reduce((sum, vale) => sum + (Number(vale.approvedAmount) || Number(vale.amount) || 0), 0);
+    return getValesConsumidos(vales, employeeId, referenceDate).reduce(
+        (sum, vale) => sum + (Number(vale.approvedAmount) || Number(vale.amount) || 0),
+        0
+    );
 }
 
 export function getValeAvailable(salary, vales = [], employeeId, referenceDate = new Date()) {

@@ -1,7 +1,7 @@
 // public/js/ausencias.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "./db.js";
-import { db } from "./firebase-config.js";
-import { uiConfirm } from "./ui.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from './db.js';
+import { db } from './firebase-config.js';
+import { uiConfirm } from './ui.js';
 
 let _toast = null;
 
@@ -12,12 +12,20 @@ export function initAusenciasListeners(toastCb) {
     _toast = toastCb;
 
     window.deleteAusencia = async (id) => {
-        const confirmado = await uiConfirm({ title: 'Eliminar registro', message: '¿Eliminar este registro del sistema? (Atención: deberá reversar manualmente los descuentos si ya liquidó el salario).', tone: 'danger', confirmText: 'Eliminar' });
+        const confirmado = await uiConfirm({
+            title: 'Eliminar registro',
+            message:
+                '¿Eliminar este registro del sistema? (Atención: deberá reversar manualmente los descuentos si ya liquidó el salario).',
+            tone: 'danger',
+            confirmText: 'Eliminar',
+        });
         if (!confirmado) return;
         try {
-            await deleteDoc(doc(db, "ausencias", id));
-            if(_toast) _toast("Eliminado", "Registro borrado exitosamente.");
-        } catch(e) { console.error(e); }
+            await deleteDoc(doc(db, 'ausencias', id));
+            if (_toast) _toast('Eliminado', 'Registro borrado exitosamente.');
+        } catch (e) {
+            console.error(e);
+        }
     };
 }
 
@@ -26,24 +34,24 @@ export function initAusenciasListeners(toastCb) {
 // ==========================================
 export function setupCreateAusenciaLogic(toastCb) {
     const form = document.getElementById('ausenciaForm');
-    if(!form) return;
+    if (!form) return;
 
     // --- HELPER: Calcula la diferencia en minutos entre dos horas (HH:MM) ---
     const getMinutesDiff = (entradaFija, entradaReal) => {
-        if(!entradaFija || !entradaReal) return 0;
+        if (!entradaFija || !entradaReal) return 0;
         const [h1, m1] = entradaFija.split(':').map(Number);
         const [h2, m2] = entradaReal.split(':').map(Number);
-        
-        const minutosFija = (h1 * 60) + m1;
-        const minutosReal = (h2 * 60) + m2;
-        
+
+        const minutosFija = h1 * 60 + m1;
+        const minutosReal = h2 * 60 + m2;
+
         const diff = minutosReal - minutosFija;
         return diff > 0 ? diff : 0; // Solo cuenta si llegó tarde
     };
 
     // --- HELPER: Extrae números de "Gs. 2.500.000" ---
     const parseDinero = (val) => {
-        if(!val) return 0;
+        if (!val) return 0;
         return Number(String(val).replace(/\D/g, '')) || 0;
     };
 
@@ -57,10 +65,9 @@ export function setupCreateAusenciaLogic(toastCb) {
         if (e.target.value === 'Llegada Tardia') {
             containerFechas.classList.add('hidden');
             containerHoras.classList.remove('hidden');
-            
+
             // Auto-seleccionar fecha de hoy para la llegada tardía
             document.getElementById('aus-date-tardia').value = new Date().toISOString().split('T')[0];
-            
         } else {
             containerFechas.classList.remove('hidden');
             containerHoras.classList.add('hidden');
@@ -69,11 +76,11 @@ export function setupCreateAusenciaLogic(toastCb) {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const empId = document.getElementById('aus-emp').value;
         const type = document.getElementById('aus-type').value;
         const reason = document.getElementById('aus-reason').value;
-        
+
         // Datos del Empleado Seleccionado (del dataset del option)
         const selectedOption = empSelect.options[empSelect.selectedIndex];
         const empName = selectedOption.text;
@@ -81,7 +88,7 @@ export function setupCreateAusenciaLogic(toastCb) {
         const empSalary = parseDinero(selectedOption.dataset.salary);
         const branchEntrada = selectedOption.dataset.entrada;
 
-        if(!empId) return toastCb("Error", "Seleccione un funcionario.");
+        if (!empId) return toastCb('Error', 'Seleccione un funcionario.');
 
         let registro = {
             employeeId: empId,
@@ -90,7 +97,7 @@ export function setupCreateAusenciaLogic(toastCb) {
             type: type,
             reason: reason,
             createdAt: serverTimestamp(),
-            status: 'Procesado' // Para que pueda filtrarse después
+            status: 'Procesado', // Para que pueda filtrarse después
         };
 
         // ==========================================
@@ -100,14 +107,18 @@ export function setupCreateAusenciaLogic(toastCb) {
             const fecha = document.getElementById('aus-date-tardia').value;
             const horaLlegada = document.getElementById('aus-hora').value;
 
-            if(!fecha || !horaLlegada) return toastCb("Error", "Ingrese la fecha y la hora de llegada.");
-            if(!branchEntrada) return toastCb("Atención", `La sucursal ${empBranch} no tiene horario de entrada configurado en el sistema.`);
+            if (!fecha || !horaLlegada) return toastCb('Error', 'Ingrese la fecha y la hora de llegada.');
+            if (!branchEntrada)
+                return toastCb(
+                    'Atención',
+                    `La sucursal ${empBranch} no tiene horario de entrada configurado en el sistema.`
+                );
 
             const minutosTarde = getMinutesDiff(branchEntrada, horaLlegada);
 
             let multa = 0;
             if (minutosTarde <= 0) {
-                return toastCb("Aviso", "El horario ingresado NO es tardío según la sucursal.");
+                return toastCb('Aviso', 'El horario ingresado NO es tardío según la sucursal.');
             } else if (minutosTarde <= 29) {
                 multa = 5000;
             } else if (minutosTarde >= 30 && minutosTarde <= 59) {
@@ -116,7 +127,12 @@ export function setupCreateAusenciaLogic(toastCb) {
                 multa = 20000;
             }
 
-            const confirmado = await uiConfirm({ title: 'Confirmar tardanza', message: `Resumen Llegada Tardía:\n- Horario Sucursal: ${branchEntrada}\n- Llegó: ${horaLlegada}\n- Minutos tarde: ${minutosTarde} min.\n\n>> MULTA A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar y aplicar descuento?`, tone: 'warning', confirmText: 'Aplicar descuento' });
+            const confirmado = await uiConfirm({
+                title: 'Confirmar tardanza',
+                message: `Resumen Llegada Tardía:\n- Horario Sucursal: ${branchEntrada}\n- Llegó: ${horaLlegada}\n- Minutos tarde: ${minutosTarde} min.\n\n>> MULTA A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar y aplicar descuento?`,
+                tone: 'warning',
+                confirmText: 'Aplicar descuento',
+            });
             if (!confirmado) return;
 
             registro.date = fecha;
@@ -125,8 +141,7 @@ export function setupCreateAusenciaLogic(toastCb) {
             registro.minutosTarde = minutosTarde;
             registro.montoDescuento = multa;
             registro.detail = `Tardanza: ${minutosTarde} min (${horaLlegada})`;
-
-        } 
+        }
         // ==========================================
         // CÁLCULO B: AUSENCIAS (REGLA DE / 30)
         // ==========================================
@@ -134,8 +149,9 @@ export function setupCreateAusenciaLogic(toastCb) {
             const start = document.getElementById('aus-start').value;
             const end = document.getElementById('aus-end').value;
 
-            if(!start || !end) return toastCb("Error", "Complete las fechas de inicio y fin.");
-            if(new Date(end) < new Date(start)) return toastCb("Error", "La fecha fin no puede ser anterior al inicio.");
+            if (!start || !end) return toastCb('Error', 'Complete las fechas de inicio y fin.');
+            if (new Date(end) < new Date(start))
+                return toastCb('Error', 'La fecha fin no puede ser anterior al inicio.');
 
             // Calcular días (incluso si es 1 solo día)
             const d1 = new Date(start + 'T00:00:00');
@@ -147,7 +163,12 @@ export function setupCreateAusenciaLogic(toastCb) {
             // Solo descontamos plata si es Falta Injustificada
             if (type === 'Falta Injustificada') {
                 multa = Math.floor((empSalary / 30) * diffDays);
-                const confirmado = await uiConfirm({ title: 'Confirmar falta', message: `Resumen de Falta:\n- Días ausente: ${diffDays}\n- Salario Diario: Gs. ${Math.floor(empSalary / 30).toLocaleString()}\n\n>> DESCUENTO A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar?`, tone: 'warning', confirmText: 'Aplicar descuento' });
+                const confirmado = await uiConfirm({
+                    title: 'Confirmar falta',
+                    message: `Resumen de Falta:\n- Días ausente: ${diffDays}\n- Salario Diario: Gs. ${Math.floor(empSalary / 30).toLocaleString()}\n\n>> DESCUENTO A APLICAR: Gs. ${multa.toLocaleString()}\n\n¿Confirmar?`,
+                    tone: 'warning',
+                    confirmText: 'Aplicar descuento',
+                });
                 if (!confirmado) return;
             }
 
@@ -161,35 +182,36 @@ export function setupCreateAusenciaLogic(toastCb) {
 
         const btn = form.querySelector('button[type="submit"]');
         const oldText = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> PROCESANDO...';
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> PROCESANDO...';
 
         try {
             // 1. GUARDAMOS EL REGISTRO DE CONTROL (AUDITORÍA)
-            await addDoc(collection(db, "ausencias"), registro);
+            await addDoc(collection(db, 'ausencias'), registro);
 
             // 2. SI HAY MULTA, LA ENVIAMOS DIRECTO AL MÓDULO DE DESCUENTOS PARA QUE AFECTE EL SALARIO
             if (registro.montoDescuento > 0) {
-                await addDoc(collection(db, "descuentos"), {
+                await addDoc(collection(db, 'descuentos'), {
                     employeeId: empId,
                     amount: registro.montoDescuento,
                     reason: registro.detail,
                     date: registro.date, // Para que descuente en el mes correcto
                     createdAt: serverTimestamp(),
-                    status: 'Aplicado'
+                    status: 'Aplicado',
                 });
             }
 
-            toastCb("Completado", "Control de Asistencia registrado. Descuentos aplicados si corresponde.");
+            toastCb('Completado', 'Control de Asistencia registrado. Descuentos aplicados si corresponde.');
             form.reset();
             // Restaurar vista por defecto
             containerFechas.classList.remove('hidden');
             containerHoras.classList.add('hidden');
-
         } catch (error) {
             console.error(error);
-            toastCb("Error", "Fallo de conexión al guardar.");
+            toastCb('Error', 'Fallo de conexión al guardar.');
         } finally {
-            btn.disabled = false; btn.innerHTML = oldText;
+            btn.disabled = false;
+            btn.innerHTML = oldText;
         }
     });
 }
@@ -199,14 +221,20 @@ export function setupCreateAusenciaLogic(toastCb) {
 // ==========================================
 export function getViewCreateAusencia(employees) {
     // FILTRAMOS SOLO ACTIVOS PARA ASIGNARLES FALTAS O TARDANZAS
-    const activos = employees.filter(e => e.status !== 'INACTIVO').sort((a,b) => a.fullName.localeCompare(b.fullName));
+    const activos = employees
+        .filter((e) => e.status !== 'INACTIVO')
+        .sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     // Ojo a los data-attributes, son vitales para los cálculos en el JS
-    const optionsHtml = activos.map(e => `
+    const optionsHtml = activos
+        .map(
+            (e) => `
         <option value="${e.id}" data-salary="${e.salary}" data-branch="${e.branch}" data-entrada="${e.horarioEntrada || '07:00'}">
             ${e.fullName} (${e.branch})
         </option>
-    `).join('');
+    `
+        )
+        .join('');
 
     return `
         <div class="max-w-4xl mx-auto bg-white p-10 rounded-[40px] shadow-2xl border border-rose-50 fade-in">
@@ -296,25 +324,25 @@ export function getViewListAusencias(ausencias, employees) {
     const todayStr = new Date().toLocaleDateString();
 
     // ORDENAMOS DE MÁS RECIENTE A MÁS ANTIGUO
-    const listaOrdenada = [...ausencias].sort((a,b) => {
+    const listaOrdenada = [...ausencias].sort((a, b) => {
         const da = a.createdAt ? a.createdAt.toDate() : new Date(a.startDate || a.date);
         const db = b.createdAt ? b.createdAt.toDate() : new Date(b.startDate || b.date);
         return db - da;
     });
 
     let filasHTML = '';
-    
-    listaOrdenada.forEach(a => {
+
+    listaOrdenada.forEach((a) => {
         const empName = a.employeeName || 'S/N';
-        
+
         let color = 'bg-slate-50 text-slate-600 border-slate-200';
-        if(a.type === 'Falta Injustificada') color = 'bg-red-50 text-red-600 border-red-200 font-black';
-        if(a.type === 'Llegada Tardia') color = 'bg-amber-50 text-amber-700 border-amber-200 font-bold';
-        if(a.type === 'Enfermedad' || a.type === 'Vacaciones') color = 'bg-sky-50 text-sky-600 border-sky-200';
+        if (a.type === 'Falta Injustificada') color = 'bg-red-50 text-red-600 border-red-200 font-black';
+        if (a.type === 'Llegada Tardia') color = 'bg-amber-50 text-amber-700 border-amber-200 font-bold';
+        if (a.type === 'Enfermedad' || a.type === 'Vacaciones') color = 'bg-sky-50 text-sky-600 border-sky-200';
 
         let fechaDisplay = '';
-        if(a.type === 'Llegada Tardia') {
-            const [y, m, d] = (a.date||'').split('-');
+        if (a.type === 'Llegada Tardia') {
+            const [y, m, d] = (a.date || '').split('-');
             fechaDisplay = `${d}/${m}/${y}`;
         } else {
             const d1 = a.startDate ? a.startDate.split('-').reverse().join('/') : '-';
@@ -328,14 +356,14 @@ export function getViewListAusencias(ausencias, employees) {
             <td class="p-3"><span class="text-[9px] uppercase px-2 py-1 rounded-md border ${color}">${a.type}</span></td>
             <td class="p-3 text-xs text-slate-500 font-medium">${fechaDisplay}</td>
             <td class="p-3 text-[10px] text-slate-400 italic max-w-[200px] truncate" title="${a.reason || a.detail}">${a.reason || a.detail}</td>
-            <td class="p-3 text-right text-xs font-black text-rose-600">${a.montoDescuento > 0 ? '-Gs. '+a.montoDescuento.toLocaleString() : '---'}</td>
+            <td class="p-3 text-right text-xs font-black text-rose-600">${a.montoDescuento > 0 ? '-Gs. ' + a.montoDescuento.toLocaleString() : '---'}</td>
             <td class="p-3 text-center">
                 <button onclick="deleteAusencia('${a.id}')" class="text-slate-300 hover:text-red-500 transition-colors"><i class="ph-bold ph-trash text-lg"></i></button>
             </td>
         </tr>`;
     });
 
-    if(listaOrdenada.length === 0) {
+    if (listaOrdenada.length === 0) {
         filasHTML = `<tr><td colspan="6" class="text-center py-10 text-slate-400 font-bold">No hay registros de incidencias en la base de datos.</td></tr>`;
     }
 

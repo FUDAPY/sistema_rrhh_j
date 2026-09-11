@@ -7,7 +7,7 @@ descuentos, ausencias, comisiones y desempeño, con control de acceso por roles.
 ![License](https://img.shields.io/badge/license-MIT%20%2B%20attribution-2ea44f)
 ![Estado](https://img.shields.io/badge/estado-funcional-brightgreen)
 
-**Stack** &nbsp;![Node.js](https://img.shields.io/badge/Node.js-20_LTS-339933?logo=nodedotjs&logoColor=white)
+**Stack** &nbsp;![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=nodedotjs&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?logo=mongodb&logoColor=white)
@@ -28,7 +28,7 @@ descuentos, ausencias, comisiones y desempeño, con control de acceso por roles.
 ![Docker](https://img.shields.io/badge/Docker-contenedor-2496ED?logo=docker&logoColor=white)
 
 > **Versión actual: `5.7.0`** — fuente única en el archivo `VERSION`, espejada en `package.json`
-> (`version`) y mostrada en la app vía `data-system-version` y el modal *Acerca de*.
+> (`version`) y mostrada en la app vía `data-system-version` y el modal _Acerca de_.
 
 > © 2026 Giuliano Emanuel Maria Catella Riveros (Otelax Dev). Licencia **MIT**: se permite usar,
 > copiar, modificar y distribuir **mencionando al creador**. Ver `LICENSE`.
@@ -47,6 +47,7 @@ cada pago, descuento o ausencia queda registrado con autor, fecha y estado; los 
 RRHH quedan **pendientes de rendición** y los aprueba el ADMIN.
 
 **Rol del sistema.**
+
 - **Backend** (Node + Express): API REST, autenticación JWT, tiempo real por SSE y archivos estáticos.
 - **Frontend** (SPA multi-página con Vite): panel (`rrhh.html`), login (`index.html`) y portales
   públicos (`vales.html`, `descuentos.html`).
@@ -54,11 +55,11 @@ RRHH quedan **pendientes de rendición** y los aprueba el ADMIN.
 
 **Usuarios finales.**
 
-| Usuario | Acceso |
-|---|---|
-| **ADMIN** | Total, incluida Gestión de Usuarios y Aprobación de Pagos. |
-| **RRHH** | Módulos operativos: no edita fichas (solo **dar de baja**), no ve vales/comisiones/usuarios; sus pagos quedan pendientes de rendición. |
-| **Empleado (público)** | Sin login: solicita vales desde `vales.html`. |
+| Usuario                | Acceso                                                                                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **ADMIN**              | Total, incluida Gestión de Usuarios y Aprobación de Pagos.                                                                             |
+| **RRHH**               | Módulos operativos: no edita fichas (solo **dar de baja**), no ve vales/comisiones/usuarios; sus pagos quedan pendientes de rendición. |
+| **Empleado (público)** | Sin login: solicita vales desde `vales.html`.                                                                                          |
 
 **Supuestos.** Un tenant (LinGroup), moneda Guaraní (Gs.), zona horaria America/Asuncion.
 
@@ -66,21 +67,21 @@ RRHH quedan **pendientes de rendición** y los aprueba el ADMIN.
 
 ## 2. Stack tecnológico y versiones
 
-| Capa | Tecnología | Versión |
-|---|---|---|
-| Runtime | Node.js | 20 LTS (probado en 24.x) |
-| Lenguaje | JavaScript ES Modules | ES2022 |
-| Backend | Express | 5.x |
-| Base de datos | MongoDB (driver oficial) | driver 7.x |
-| Auth | jsonwebtoken + bcryptjs | 9.x / 3.x |
-| Build frontend | Vite | 8.x |
-| Estilos | Tailwind CSS + PostCSS + autoprefixer | 3.4 / 8.x / 10.x |
-| Iconos | Phosphor Icons (CDN) | — |
-| Tests | Vitest | 5.x |
-| Lint / Format | ESLint (flat) + Prettier | 10.x / 3.x |
-| Assets | sharp (dev) | 0.35.x |
-| Migración | firebase-admin (dev, solo para migrar) | 14.x |
-| Deploy | Dokploy + Railpack | — |
+| Capa           | Tecnología                             | Versión                            |
+| -------------- | -------------------------------------- | ---------------------------------- |
+| Runtime        | Node.js                                | ≥ 22.12 (LTS 22 · probado en 24.x) |
+| Lenguaje       | JavaScript ES Modules                  | ES2022                             |
+| Backend        | Express                                | 5.x                                |
+| Base de datos  | MongoDB (driver oficial)               | driver 7.x                         |
+| Auth           | jsonwebtoken + bcryptjs                | 9.x / 3.x                          |
+| Build frontend | Vite                                   | 8.x                                |
+| Estilos        | Tailwind CSS + PostCSS + autoprefixer  | 3.4 / 8.x / 10.x                   |
+| Iconos         | Phosphor Icons (CDN)                   | —                                  |
+| Tests          | Vitest                                 | 5.x                                |
+| Lint / Format  | ESLint (flat) + Prettier               | 10.x / 3.x                         |
+| Assets         | sharp (dev)                            | 0.35.x                             |
+| Migración      | firebase-admin (dev, solo para migrar) | 14.x                               |
+| Deploy         | Dokploy + Railpack                     | —                                  |
 
 > No se usa TypeScript ni ORM: acceso directo al driver de MongoDB.
 
@@ -137,6 +138,7 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 ```
 
 **Principio de responsabilidad.**
+
 - **Rutas/controladores** (`server/index.js`): validar entrada, aplicar permisos, delegar y responder.
 - **Dominio/reglas**: en el frontend (`vales-cupo.js`, `salarios.js`) y en `server/access.js`.
 - **Persistencia**: exclusivamente en `server/store.js` (nunca consultas sueltas en las rutas).
@@ -147,6 +149,7 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 ## 4. Reglas de negocio y restricciones (guardrails)
 
 ### Seguridad y autenticación
+
 - **JWT** firmado con `JWT_SECRET`, enviado como `Authorization: Bearer <token>`. El SSE lo recibe
   por query `?token=` (EventSource no admite headers).
 - **Contraseñas** con **bcrypt** (10 rondas). `passwordHash` **nunca** se serializa al cliente.
@@ -155,17 +158,19 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 - Secretos solo por variables de entorno; `.env` y `*-firebase-adminsdk-*.json` están en `.gitignore`.
 
 ### Permisos por rol (resumen)
-| Recurso | ADMIN | RRHH |
-|---|---|---|
-| Lectura general | ✅ | ✅ |
-| `employees` escritura | ✅ | Crear y **solo** `status`/`endDate` (dar de baja) |
-| `salaries` | ✅ (aprobar/eliminar) | Solo **crear** (queda `PENDIENTE_RENDICION`) |
-| `descuentos`, `sucursales`, `ausencias` | ✅ | ✅ |
-| `vales`, `comisiones` | ✅ | Solo cambiar `status` (al liquidar) |
-| `users` | ✅ | ❌ (403) |
-| Público (sin login) | — | `GET employees`, `GET/POST vales` |
+
+| Recurso                                 | ADMIN                 | RRHH                                              |
+| --------------------------------------- | --------------------- | ------------------------------------------------- |
+| Lectura general                         | ✅                    | ✅                                                |
+| `employees` escritura                   | ✅                    | Crear y **solo** `status`/`endDate` (dar de baja) |
+| `salaries`                              | ✅ (aprobar/eliminar) | Solo **crear** (queda `PENDIENTE_RENDICION`)      |
+| `descuentos`, `sucursales`, `ausencias` | ✅                    | ✅                                                |
+| `vales`, `comisiones`                   | ✅                    | Solo cambiar `status` (al liquidar)               |
+| `users`                                 | ✅                    | ❌ (403)                                          |
+| Público (sin login)                     | —                     | `GET employees`, `GET/POST vales`                 |
 
 ### Reglas de cálculo (no romper)
+
 1. **Cupo de vales** = 40 % del salario vigente; un vale `Pendiente` o `Rechazado` no afecta salario.
 2. **Liquidación** = `(base prorrateada + comisiones) − (vales aprobados/cobrados + descuentos + ya pagado)`.
 3. **Prorrateo** por días hábiles al ingresar/egresar a mitad de mes.
@@ -174,11 +179,13 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 6. **Todo pago creado por RRHH** se guarda con `estadoAprobacion: 'PENDIENTE_RENDICION'` y `creadoPorRol: 'RRHH'`.
 
 ### Manejo de errores
+
 - Formato estándar: `{ "error": "mensaje" }` con el código HTTP adecuado
   (`400` validación, `401` sin sesión, `403` sin permiso, `404` inexistente, `409` duplicado, `500` interno).
 - El backend loguea el error y responde el mensaje; el frontend muestra **toast** (no `alert`).
 
 ### Lo que NO debe hacerse
+
 - ❌ No usar `alert()`, `confirm()` ni `prompt()` → usar `ui.js`.
 - ❌ No hardcodear credenciales, tokens ni URLs de la base; usar variables de entorno.
 - ❌ No consultar MongoDB fuera de `server/store.js`.
@@ -214,7 +221,10 @@ npm run build               # genera /dist
 npm run preview             # sirve el build
 
 npm run test                # tests unitarios (Vitest)
-npm run lint                # ESLint
+npm run test:coverage       # tests + cobertura (umbral 80%)
+npm run lint                # ESLint (0 errores)
+npm run format:check        # verifica el formato (Prettier)
+npm run format              # aplica el formato (Prettier)
 npm run smoke               # health + login + datos + SSE + RBAC (servidor corriendo)
 
 npm run migrate             # migra Firestore -> MongoDB (una sola vez)
@@ -224,7 +234,21 @@ npm run user:create -- <email> <password> [ADMIN|RRHH] [Nombre]
 npm run assets:optimize     # optimiza el logo y genera iconos PWA
 ```
 
-> **Antes de entregar cambios**: `npm run lint` (0 errores) + `npm run test` + `npm run build` en verde.
+> **Antes de entregar cambios**: `npm run format:check` + `npm run lint` (0 errores) + `npm run test:coverage` + `npm run build` en verde.
+
+### CI (GitHub Actions)
+
+`.github/workflows/ci.yml` corre en cada push/PR: **Node 22** (`vitest@5` exige ≥ 22.12) →
+`npm ci` → `format:check` → `lint` → `test:coverage` → `build`.
+
+### Editor (VS Code)
+
+El repositorio incluye `.vscode/settings.json` (y `.editorconfig`) con Prettier fijado a
+`node_modules/prettier/index.mjs`, `formatOnSave` activado y `documentSelectors` acotados a los lenguajes del proyecto.
+
+Si la extensión Prettier falla con `Cannot find module '.../prettier/index.mjs' imported from '.../prettier/index.cjs'`,
+el extension host cacheó un módulo fallido, algo habitual cuando se ejecuta `npm install`/`npm ci` con VS Code abierto.
+Solución: **Developer: Reload Window** (`Ctrl+Shift+P`). El CLI (`npm run format`) no se ve afectado porque corre fuera de VS Code.
 
 ---
 
@@ -232,17 +256,17 @@ npm run assets:optimize     # optimiza el logo y genera iconos PWA
 
 Copiar `.env.production.example` a `.env` (o cargarlas en Dokploy → Environment).
 
-| Variable | Obligatoria | Descripción |
-|---|---|---|
-| `MONGODB_URI` | ✅ | URI de conexión. En producción usar la **interna**. |
-| `MONGODB_DB` | ✅ | Base de datos (por defecto `rrhh`). |
-| `JWT_SECRET` | ✅ | Secreto para firmar sesiones (largo y aleatorio). |
-| `JWT_EXPIRES_IN` | — | Duración de la sesión (por defecto `12h`). |
-| `PORT` | — | Puerto del servidor (por defecto `3000`). |
-| `RAILPACK_START_CMD` | Dokploy | `npm run start:prod` — evita que Railpack sirva como estático. |
-| `RAILPACK_NODE_VERSION` | Dokploy | `20` |
-| `FIREBASE_SERVICE_ACCOUNT` | Solo migración | Ruta al JSON del Admin SDK. |
-| `MIGRATION_DEFAULT_PASSWORD` | Solo migración | Contraseña temporal para usuarios migrados. |
+| Variable                     | Obligatoria    | Descripción                                                    |
+| ---------------------------- | -------------- | -------------------------------------------------------------- |
+| `MONGODB_URI`                | ✅             | URI de conexión. En producción usar la **interna**.            |
+| `MONGODB_DB`                 | ✅             | Base de datos (por defecto `rrhh`).                            |
+| `JWT_SECRET`                 | ✅             | Secreto para firmar sesiones (largo y aleatorio).              |
+| `JWT_EXPIRES_IN`             | —              | Duración de la sesión (por defecto `12h`).                     |
+| `PORT`                       | —              | Puerto del servidor (por defecto `3000`).                      |
+| `RAILPACK_START_CMD`         | Dokploy        | `npm run start:prod` — evita que Railpack sirva como estático. |
+| `RAILPACK_NODE_VERSION`      | Dokploy        | `22` (vitest 5 exige Node ≥ 22.12)                             |
+| `FIREBASE_SERVICE_ACCOUNT`   | Solo migración | Ruta al JSON del Admin SDK.                                    |
+| `MIGRATION_DEFAULT_PASSWORD` | Solo migración | Contraseña temporal para usuarios migrados.                    |
 
 ---
 
@@ -251,32 +275,36 @@ Copiar `.env.production.example` a `.env` (o cargarlas en Dokploy → Environmen
 Base: `/api`. Autenticación: `Authorization: Bearer <token>`.
 
 ### Auth
-| Método | Ruta | Rol | Descripción |
-|---|---|---|---|
-| POST | `/api/auth/login` | público | Devuelve `{ token, user }`. |
-| GET | `/api/auth/me` | sesión | Usuario actual. |
-| POST | `/api/auth/users` | ADMIN | Crea usuario (`{ email, password, fullName, role }`). |
-| POST | `/api/auth/users/:id/password` | ADMIN | Cambia la contraseña. |
+
+| Método | Ruta                           | Rol     | Descripción                                           |
+| ------ | ------------------------------ | ------- | ----------------------------------------------------- |
+| POST   | `/api/auth/login`              | público | Devuelve `{ token, user }`.                           |
+| GET    | `/api/auth/me`                 | sesión  | Usuario actual.                                       |
+| POST   | `/api/auth/users`              | ADMIN   | Crea usuario (`{ email, password, fullName, role }`). |
+| POST   | `/api/auth/users/:id/password` | ADMIN   | Cambia la contraseña.                                 |
 
 ### Datos (genérico)
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/data/:collection?where=campo:op:valor&orderBy=campo:dir&limit=n` | Lista documentos. |
-| GET | `/api/data/:collection/:id` | Un documento. |
-| POST | `/api/data/:collection` | Crea (body `{ data }`). |
-| PATCH | `/api/data/:collection/:id` | Actualiza campos. |
-| DELETE | `/api/data/:collection/:id` | Elimina. |
+
+| Método | Ruta                                                                   | Descripción             |
+| ------ | ---------------------------------------------------------------------- | ----------------------- |
+| GET    | `/api/data/:collection?where=campo:op:valor&orderBy=campo:dir&limit=n` | Lista documentos.       |
+| GET    | `/api/data/:collection/:id`                                            | Un documento.           |
+| POST   | `/api/data/:collection`                                                | Crea (body `{ data }`). |
+| PATCH  | `/api/data/:collection/:id`                                            | Actualiza campos.       |
+| DELETE | `/api/data/:collection/:id`                                            | Elimina.                |
 
 Operadores `where`: `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not-in`, `array-contains`.
 Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": true }` al escribir).
 
 ### Tiempo real y salud
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/realtime/:collection?token=<jwt>` | SSE: emite `event: snapshot` con `{ docs }`. |
-| GET | `/api/health` | `{ ok: true }`. |
+
+| Método | Ruta                                    | Descripción                                  |
+| ------ | --------------------------------------- | -------------------------------------------- |
+| GET    | `/api/realtime/:collection?token=<jwt>` | SSE: emite `event: snapshot` con `{ docs }`. |
+| GET    | `/api/health`                           | `{ ok: true }`.                              |
 
 ### Colecciones
+
 `ausencias`, `comisiones`, `descuentos`, `employees`, `evaluaciones`, `health`, `proveedores`,
 `salaries`, `salaryCarryovers`, `salaryHistory`, `sucursales`, `users`, `vales`.
 
@@ -284,20 +312,20 @@ Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": tr
 
 ## 9. Modelo de datos (MongoDB, base `rrhh`)
 
-| Colección | Campos principales |
-|---|---|
-| `employees` | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address` |
-| `salaryHistory` | `employeeId`, `previousSalary`, `newSalary`, `effectiveFrom`, `reason` (+ auditoría) |
-| `vales` | `employeeId`, `amount`, `requestedAmount`, `approvedAmount`, `reason`, `status`, `estadoAprobacion`, `valeDateKey`, `paymentCode` |
-| `salaries` | `employeeId`, `netPay`, `salaryBase`, `month`, `year`, `date`, `type` (LIQUIDACION/INDIVIDUAL), `paymentCode`, `estadoAprobacion` |
-| `descuentos` | `employeeId`, `amount`, `reason`, `date`, `status` (Aplicado), `deleted` |
-| `ausencias` | `employeeId`, `type`, `startDate`, `endDate`, `minutosTarde`, `montoDescuento` |
-| `comisiones` | `employeeId`, `amount`, `reason`, `status` (Pendiente/Aprobado/Pagado) |
-| `evaluaciones` | `employeeId`, `score`, período |
-| `sucursales` | `name`, `entrada`, `salida` |
-| `proveedores` | `name`, `ruc`, `phone`, `category`, `address` |
-| `users` | `email`, `role`, `fullName`, `passwordHash` (nunca sale al cliente) |
-| `health`, `salaryCarryovers` | Soporte |
+| Colección                    | Campos principales                                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `employees`                  | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address` |
+| `salaryHistory`              | `employeeId`, `previousSalary`, `newSalary`, `effectiveFrom`, `reason` (+ auditoría)                                                      |
+| `vales`                      | `employeeId`, `amount`, `requestedAmount`, `approvedAmount`, `reason`, `status`, `estadoAprobacion`, `valeDateKey`, `paymentCode`         |
+| `salaries`                   | `employeeId`, `netPay`, `salaryBase`, `month`, `year`, `date`, `type` (LIQUIDACION/INDIVIDUAL), `paymentCode`, `estadoAprobacion`         |
+| `descuentos`                 | `employeeId`, `amount`, `reason`, `date`, `status` (Aplicado), `deleted`                                                                  |
+| `ausencias`                  | `employeeId`, `type`, `startDate`, `endDate`, `minutosTarde`, `montoDescuento`                                                            |
+| `comisiones`                 | `employeeId`, `amount`, `reason`, `status` (Pendiente/Aprobado/Pagado)                                                                    |
+| `evaluaciones`               | `employeeId`, `score`, período                                                                                                            |
+| `sucursales`                 | `name`, `entrada`, `salida`                                                                                                               |
+| `proveedores`                | `name`, `ruc`, `phone`, `category`, `address`                                                                                             |
+| `users`                      | `email`, `role`, `fullName`, `passwordHash` (nunca sale al cliente)                                                                       |
+| `health`, `salaryCarryovers` | Soporte                                                                                                                                   |
 
 Los IDs de MongoDB son `string`. **Soft-delete**: `deleted: true` con `deletedAt` / `deletedBy`.
 Los estados de un vale: `Pendiente → Aprobado → Cobrado` (o `Rechazado` / `Anulado`).
@@ -313,18 +341,21 @@ Internet ─HTTPS─> Dokploy (Railpack) ─> Node/Express (:3000) ─> MongoDB 
 ```
 
 **Aplicación**
-1. *Project* → *Create Application*; Source: repositorio Git (rama `main`).
+
+1. _Project_ → _Create Application_; Source: repositorio Git (rama `main`).
 2. **Build Type**: `Railpack`. **Port**: `3000`.
 3. **Environment**: cargar las variables de la sección 7. Usar la **URI interna** de Mongo
    (`mongodb://usuario:pass@<servicio-mongo>:27017/?authSource=admin`).
 4. **Domains**: dominio + HTTPS (Let's Encrypt). 5. **Deploy**.
 
 **Base de datos (servicio MongoDB en Dokploy)**
+
 ```env
 MONGO_INITDB_ROOT_USERNAME=<usuario>
 MONGO_INITDB_ROOT_PASSWORD=<password>
 MONGO_INITDB_DATABASE=rrhh
 ```
+
 > `MONGO_INITDB_*` solo se aplica en el primer arranque (volumen vacío).
 
 > ⚠️ **Railpack + Vite**: Railpack detecta un "SPA" cuando el script `build` contiene `vite build` y
@@ -351,64 +382,18 @@ Firebase ya **no** se usa en runtime: se eliminaron sus dependencias, config y w
 
 ---
 
-## 12. Directrices para Asistente de IA
-
-### 1. Contexto del Proyecto
-- **Objetivo:** sistema de RRHH self-hosted (legajos, vales, liquidaciones, descuentos, ausencias).
-- **Tipo de Aplicación:** SPA multi-página + API REST (Node/Express) con MongoDB.
-
-### 2. Stack Tecnológico Estricto
-- Node.js 20 LTS · JavaScript ES Modules (ES2022) · Express 5 · MongoDB (driver oficial).
-- Vite 8 · Tailwind CSS 3.4 (compilado) · Vitest 5 · ESLint 10 (flat) + Prettier.
-
-### 3. Estructura de Archivos
-```
-server/    # API: index (rutas), access (permisos), auth, db, store, realtime, values
-public/js/ # Frontend: system, salarios, vales, ausencias, comisiones, desempeno,
-           #          proveedores, db, auth, ui, export, vales-cupo, print-service
-scripts/   # migracion, assets, smoke, usuarios
-tests/     # Vitest
-```
-
-### 4. Reglas de Desarrollo Obligatorias
-- Todo cálculo nuevo en `vales-cupo.js`/`salarios.js` debe ser **puro** y tener **test unitario**.
-- **Nunca** usar `alert()`, `confirm()` ni `prompt()`: usar `ui.js` (`uiToast`/`uiConfirm`/`uiPrompt`).
-- Las consultas a MongoDB se hacen **exclusivamente** en `server/store.js`.
-- Las vistas del frontend usan `db.js`/`auth.js`; **nunca** `fetch` directo.
-- Respetar los permisos de `server/access.js`: si agregás una colección o acción, definí su regla.
-- `passwordHash` y el listado de `users` **solo** para ADMIN.
-- Responder errores con `{ "error": "mensaje" }` y el código HTTP correcto.
-- No crear archivos `.md` nuevos: documentar en este README.
-- Comentarios breves y técnicos; sin banners decorativos.
-
-### 5. Comandos de Verificación
-```powershell
-npm install
-npm run lint      # 0 errores
-npm run test      # tests unitarios
-npm run build     # build de produccion
-npm run smoke     # con el servidor corriendo (http://localhost:3000)
-```
-
----
-
-## 13. Licencia
+## 12. Licencia
 
 **MIT con atribución obligatoria** (texto completo en `LICENSE`).
 
 - ✅ Se permite **usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y vender**
   el software, incluido uso comercial.
 - ⚠️ **Obligatorio mencionar al creador** en cualquier uso, copia o distribución:
-  > **Giuliano Emanuel Maria Catella Riveros (Otelax Dev)**
-  Debe figurar en la documentación, pantalla de créditos / “Acerca de”, o sección equivalente.
+    > **Giuliano Emanuel Maria Catella Riveros (Otelax Dev)**
+    > Debe figurar en la documentación, pantalla de créditos / “Acerca de”, o sección equivalente.
 - ⚠️ Debe conservarse el aviso de copyright y esta licencia en las copias o partes sustanciales.
 - ❌ El software se entrega **“tal cual”**, sin garantías.
 
 Atribución sugerida:
 
 > Basado en **Sistema RRHH LinGroup** — © 2026 Giuliano Emanuel Maria Catella Riveros (Otelax Dev).
-
-
-
-
-

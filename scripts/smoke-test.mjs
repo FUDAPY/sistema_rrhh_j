@@ -50,7 +50,11 @@ async function loginAs(mail, pass) {
 
 const anon = await fetch(`${base}/api/data/employees`);
 console.log('RBAC anon GET employees       :', anon.status, anon.status === 200 ? 'OK' : 'FAIL');
-const anonPatch = await fetch(`${base}/api/data/employees/x`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { fullName: 'x' } }) });
+const anonPatch = await fetch(`${base}/api/data/employees/x`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: { fullName: 'x' } }),
+});
 console.log('RBAC anon PATCH employees     :', anonPatch.status, anonPatch.status === 401 ? 'OK' : 'FAIL');
 
 const rrhh = await loginAs(
@@ -62,15 +66,39 @@ if (rrhh) {
     const read = await fetch(`${base}/api/data/employees`, { headers: h });
     console.log('RBAC RRHH GET employees       :', read.status, read.status === 200 ? 'OK' : 'FAIL');
 
-    const editDenied = await fetch(`${base}/api/data/employees/x`, { method: 'PATCH', headers: h, body: JSON.stringify({ data: { fullName: 'x' } }) });
-    console.log('RBAC RRHH editar ficha        :', editDenied.status, editDenied.status === 403 ? 'OK (bloqueado)' : 'FAIL');
+    const editDenied = await fetch(`${base}/api/data/employees/x`, {
+        method: 'PATCH',
+        headers: h,
+        body: JSON.stringify({ data: { fullName: 'x' } }),
+    });
+    console.log(
+        'RBAC RRHH editar ficha        :',
+        editDenied.status,
+        editDenied.status === 403 ? 'OK (bloqueado)' : 'FAIL'
+    );
 
-    const salaryPatch = await fetch(`${base}/api/data/salaries/x`, { method: 'PATCH', headers: h, body: JSON.stringify({ data: { status: 'Pagado' } }) });
-    console.log('RBAC RRHH aprobar salario     :', salaryPatch.status, salaryPatch.status === 403 ? 'OK (bloqueado)' : 'FAIL');
+    const salaryPatch = await fetch(`${base}/api/data/salaries/x`, {
+        method: 'PATCH',
+        headers: h,
+        body: JSON.stringify({ data: { status: 'Pagado' } }),
+    });
+    console.log(
+        'RBAC RRHH aprobar salario     :',
+        salaryPatch.status,
+        salaryPatch.status === 403 ? 'OK (bloqueado)' : 'FAIL'
+    );
 
     // Dar de baja SI esta permitido (id inexistente => no modifica nada real)
-    const deactivate = await fetch(`${base}/api/data/employees/__noexiste__`, { method: 'PATCH', headers: h, body: JSON.stringify({ data: { status: 'INACTIVO', endDate: '2026-01-01' } }) });
-    console.log('RBAC RRHH dar de baja         :', deactivate.status, deactivate.status === 200 ? 'OK (permitido)' : 'FAIL');
+    const deactivate = await fetch(`${base}/api/data/employees/__noexiste__`, {
+        method: 'PATCH',
+        headers: h,
+        body: JSON.stringify({ data: { status: 'INACTIVO', endDate: '2026-01-01' } }),
+    });
+    console.log(
+        'RBAC RRHH dar de baja         :',
+        deactivate.status,
+        deactivate.status === 200 ? 'OK (permitido)' : 'FAIL'
+    );
 
     const users = await fetch(`${base}/api/data/users`, { headers: h });
     console.log('RBAC RRHH ver usuarios        :', users.status, users.status === 403 ? 'OK (bloqueado)' : 'FAIL');
@@ -79,4 +107,3 @@ if (rrhh) {
 }
 
 console.log('Smoke test finalizado.');
-

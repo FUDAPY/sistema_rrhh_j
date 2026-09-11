@@ -11,7 +11,7 @@ const OPERATORS = {
     '<=': (v) => ({ $lte: v }),
     '>': (v) => ({ $gt: v }),
     '>=': (v) => ({ $gte: v }),
-    'in': (v) => ({ $in: Array.isArray(v) ? v : [v] }),
+    in: (v) => ({ $in: Array.isArray(v) ? v : [v] }),
     'not-in': (v) => ({ $nin: Array.isArray(v) ? v : [v] }),
     'array-contains': (v) => v,
 };

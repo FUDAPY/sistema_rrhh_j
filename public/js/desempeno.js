@@ -1,7 +1,7 @@
 // public/js/desempeno.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "./db.js";
-import { db } from "./firebase-config.js";
-import { uiConfirm } from "./ui.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from './db.js';
+import { db } from './firebase-config.js';
+import { uiConfirm } from './ui.js';
 
 let _toast = null;
 
@@ -11,12 +11,19 @@ let _toast = null;
 export function initDesempenoListeners(toastCb) {
     _toast = toastCb;
     window.deleteEvaluacion = async (id) => {
-        const confirmado = await uiConfirm({ title: 'Eliminar evaluacion', message: '¿Eliminar esta evaluación?', tone: 'danger', confirmText: 'Eliminar' });
+        const confirmado = await uiConfirm({
+            title: 'Eliminar evaluacion',
+            message: '¿Eliminar esta evaluación?',
+            tone: 'danger',
+            confirmText: 'Eliminar',
+        });
         if (!confirmado) return;
         try {
-            await deleteDoc(doc(db, "evaluaciones", id));
-            if(_toast) _toast("Eliminado", "Evaluación borrada del historial.");
-        } catch(e) { console.error(e); }
+            await deleteDoc(doc(db, 'evaluaciones', id));
+            if (_toast) _toast('Eliminado', 'Evaluación borrada del historial.');
+        } catch (e) {
+            console.error(e);
+        }
     };
 }
 
@@ -25,13 +32,13 @@ export function initDesempenoListeners(toastCb) {
 // ==========================================
 export function setupCreateDesempenoLogic(toastCb) {
     const form = document.getElementById('evalForm');
-    if(!form) return;
+    if (!form) return;
 
     // Actualizar visualmente el número del slider
     const rangeInput = document.getElementById('eval-score');
     const scoreDisplay = document.getElementById('score-val');
-    
-    if(rangeInput && scoreDisplay) {
+
+    if (rangeInput && scoreDisplay) {
         rangeInput.addEventListener('input', (e) => {
             const val = e.target.value;
             scoreDisplay.innerText = val;
@@ -42,35 +49,40 @@ export function setupCreateDesempenoLogic(toastCb) {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const empId = document.getElementById('eval-emp').value;
         const score = Number(document.getElementById('eval-score').value);
         const feedback = document.getElementById('eval-feedback').value;
         const period = document.getElementById('eval-period').value; // Ej: "2024-03"
 
-        if(!empId || !feedback) return toastCb("Error", "Complete todos los campos");
+        if (!empId || !feedback) return toastCb('Error', 'Complete todos los campos');
 
         const btn = form.querySelector('button[type="submit"]');
-        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
         try {
-            await addDoc(collection(db, "evaluaciones"), {
+            await addDoc(collection(db, 'evaluaciones'), {
                 employeeId: empId,
                 score: score,
                 feedback: feedback,
                 period: period,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
             });
-            toastCb("Éxito", "Evaluación registrada");
+            toastCb('Éxito', 'Evaluación registrada');
             form.reset();
             // Reset visual score
-            if(scoreDisplay) { scoreDisplay.innerText = "5"; scoreDisplay.className = "text-4xl font-black text-yellow-500"; }
-            if(rangeInput) rangeInput.value = 5;
+            if (scoreDisplay) {
+                scoreDisplay.innerText = '5';
+                scoreDisplay.className = 'text-4xl font-black text-yellow-500';
+            }
+            if (rangeInput) rangeInput.value = 5;
         } catch (error) {
             console.error(error);
-            toastCb("Error", "No se pudo guardar");
+            toastCb('Error', 'No se pudo guardar');
         } finally {
-            btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-star"></i> GUARDAR EVALUACIÓN';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph-bold ph-star"></i> GUARDAR EVALUACIÓN';
         }
     });
 }
@@ -98,7 +110,7 @@ export function getViewCreateDesempeno(employees) {
                         <div class="relative">
                             <select id="eval-emp" required class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-bold text-slate-700 outline-none focus:border-orange-400 appearance-none">
                                 <option value="">Seleccione...</option>
-                                ${employees.map(e => `<option value="${e.id}">${e.fullName}</option>`).join('')}
+                                ${employees.map((e) => `<option value="${e.id}">${e.fullName}</option>`).join('')}
                             </select>
                             <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                         </div>
@@ -141,18 +153,23 @@ export function getViewCreateDesempeno(employees) {
 // 4. VISTA: LISTADO
 // ==========================================
 export function getViewListDesempeno(evaluaciones, employees) {
-    if(!evaluaciones.length) return '<div class="text-center p-20 text-slate-300 font-bold">NO HAY EVALUACIONES</div>';
+    if (!evaluaciones.length) return '<div class="text-center p-20 text-slate-300 font-bold">NO HAY EVALUACIONES</div>';
 
     let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 fade-in">';
-    
-    evaluaciones.forEach(ev => {
-        const emp = employees.find(e => e.id === ev.employeeId);
+
+    evaluaciones.forEach((ev) => {
+        const emp = employees.find((e) => e.id === ev.employeeId);
         const empName = emp ? emp.fullName : 'Ex-Colaborador';
         const empPhoto = emp ? emp.photo : null;
-        
+
         // Color según nota
         let colorClass = ev.score < 5 ? 'bg-red-500' : ev.score < 8 ? 'bg-yellow-500' : 'bg-emerald-500';
-        let bgClass = ev.score < 5 ? 'bg-red-50 border-red-100' : ev.score < 8 ? 'bg-yellow-50 border-yellow-100' : 'bg-emerald-50 border-emerald-100';
+        let bgClass =
+            ev.score < 5
+                ? 'bg-red-50 border-red-100'
+                : ev.score < 8
+                  ? 'bg-yellow-50 border-yellow-100'
+                  : 'bg-emerald-50 border-emerald-100';
 
         html += `
             <div class="bg-white p-6 rounded-[30px] shadow-lg border border-slate-100 relative group hover:-translate-y-1 transition-all">

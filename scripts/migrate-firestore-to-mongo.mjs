@@ -10,7 +10,8 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
 // -------------------- Config --------------------
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT || 'sys-rrhh-lingroup-firebase-adminsdk-fbsvc-bb9b9b9823.json';
+const serviceAccountPath =
+    process.env.FIREBASE_SERVICE_ACCOUNT || 'sys-rrhh-lingroup-firebase-adminsdk-fbsvc-bb9b9b9823.json';
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB || 'rrhh';
 const defaultPassword = process.env.MIGRATION_DEFAULT_PASSWORD || 'Cambiar1234';

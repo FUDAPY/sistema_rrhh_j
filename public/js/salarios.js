@@ -1,12 +1,12 @@
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from "./db.js";
-import { auth, db } from "./firebase-config.js";
-import { uiConfirm } from "./ui.js";
-import * as Export from "./export.js";
-import { printTicket } from "./print-service.js"; 
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from './db.js';
+import { auth, db } from './firebase-config.js';
+import { uiConfirm } from './ui.js';
+import * as Export from './export.js';
+import { printTicket } from './print-service.js';
 
 const parseMonto = (valor) => {
     if (!valor) return 0;
-    const limpio = String(valor).replace(/\D/g, ''); 
+    const limpio = String(valor).replace(/\D/g, '');
     return Number(limpio) || 0;
 };
 
@@ -64,14 +64,12 @@ function sortSalaryHistory(records = []) {
 }
 
 export function setSalaryHistoryData(history = []) {
-    salaryHistoryData = sortSalaryHistory(
-        history.filter(item => item && !item.deleted && item.active !== false)
-    );
+    salaryHistoryData = sortSalaryHistory(history.filter((item) => item && !item.deleted && item.active !== false));
 }
 
 export function getSalaryHistoryForEmployee(employeeId) {
     return sortSalaryHistory(
-        salaryHistoryData.filter(item => item.employeeId === employeeId && !item.deleted && item.active !== false)
+        salaryHistoryData.filter((item) => item.employeeId === employeeId && !item.deleted && item.active !== false)
     );
 }
 
@@ -79,10 +77,12 @@ function getEffectiveSalaryRecord(emp, year, month) {
     if (!emp?.id) return null;
     const periodEnd = new Date(year, month, 0);
     const history = getSalaryHistoryForEmployee(emp.id);
-    return history.find(record => {
-        const effectiveDate = normalizeEffectiveDate(record);
-        return effectiveDate && effectiveDate <= periodEnd;
-    }) || null;
+    return (
+        history.find((record) => {
+            const effectiveDate = normalizeEffectiveDate(record);
+            return effectiveDate && effectiveDate <= periodEnd;
+        }) || null
+    );
 }
 
 export function getEffectiveSalaryAmountForPeriod(emp, year, month) {
@@ -92,12 +92,10 @@ export function getEffectiveSalaryAmountForPeriod(emp, year, month) {
     if (record) {
         return parseMonto(record.newSalary);
     }
-    const futureRecord = [...history]
-        .reverse()
-        .find(item => {
-            const effectiveDate = normalizeEffectiveDate(item);
-            return effectiveDate && effectiveDate > periodEnd;
-        });
+    const futureRecord = [...history].reverse().find((item) => {
+        const effectiveDate = normalizeEffectiveDate(item);
+        return effectiveDate && effectiveDate > periodEnd;
+    });
     if (futureRecord && futureRecord.previousSalary != null) {
         return parseMonto(futureRecord.previousSalary);
     }
@@ -130,7 +128,9 @@ function applyHistoryFilters() {
     if (msg) msg.classList.toggle('hidden', matched > 0);
 
     const count = document.getElementById('historyCount');
-    if (count) count.textContent = matched === 0 ? '' : `Mostrando ${Math.min(historyState.limit, matched)} de ${matched} pagos`;
+    if (count)
+        count.textContent =
+            matched === 0 ? '' : `Mostrando ${Math.min(historyState.limit, matched)} de ${matched} pagos`;
 
     const more = document.getElementById('historyLoadMore');
     if (more) {
@@ -165,9 +165,9 @@ export function setupHistorySalaries() {
 }
 
 function countBusinessDays(year, month, startDay = 1, endDay = null) {
-    const lastDayOfMonth = new Date(year, month, 0).getDate(); 
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
     const finalDay = endDay ? Math.min(endDay, lastDayOfMonth) : lastDayOfMonth;
-    
+
     let count = 0;
     for (let day = startDay; day <= finalDay; day++) {
         const date = new Date(year, month - 1, day);
@@ -193,7 +193,7 @@ function formatDateDisplay(value) {
 function getPeriodBounds(year, month) {
     return {
         start: new Date(year, month - 1, 1),
-        end: new Date(year, month, 0)
+        end: new Date(year, month, 0),
     };
 }
 
@@ -228,7 +228,7 @@ function getEmployeeTicketSnapshot(emp) {
     return {
         name: pickText(emp.fullName, emp.employeeName, emp.name),
         branch: pickText(emp.branch, emp.employeeBranch, emp.sucursal),
-        position: pickText(emp.position, emp.employeePosition, emp.role)
+        position: pickText(emp.position, emp.employeePosition, emp.role),
     };
 }
 
@@ -243,7 +243,7 @@ function buildSalaryAuditFields(emp, paymentDate, month, year, sourceModule) {
         paymentDateKey: paymentDate || '',
         periodKey: `${year}-${String(month).padStart(2, '0')}`,
         sourceModule,
-        createdAtLocal: new Date().toISOString()
+        createdAtLocal: new Date().toISOString(),
     };
 }
 
@@ -255,10 +255,15 @@ function buildPaymentCode(employeeId, paymentDate, prefix = 'PAY') {
         String(now.getDate()).padStart(2, '0'),
         String(now.getHours()).padStart(2, '0'),
         String(now.getMinutes()).padStart(2, '0'),
-        String(now.getSeconds()).padStart(2, '0')
+        String(now.getSeconds()).padStart(2, '0'),
     ].join('');
-    const datePart = String(paymentDate || now.toISOString().split('T')[0]).replace(/\D/g, '').slice(0, 8) || localStamp.slice(0, 8);
-    const employeePart = String(employeeId || 'SINEMP').slice(-4).toUpperCase();
+    const datePart =
+        String(paymentDate || now.toISOString().split('T')[0])
+            .replace(/\D/g, '')
+            .slice(0, 8) || localStamp.slice(0, 8);
+    const employeePart = String(employeeId || 'SINEMP')
+        .slice(-4)
+        .toUpperCase();
     return `${prefix}-${datePart}-${localStamp.slice(8, 14)}-${employeePart}`;
 }
 
@@ -271,7 +276,7 @@ export function getBaseSalaryForMonth(emp, year, month) {
     let fullSalary = getEffectiveSalaryAmountForPeriod(emp, year, month);
     let esProporcional = false;
     let diasTrabajados = 30;
-    let diasLaborablesReales = countBusinessDays(year, month, 1); 
+    let diasLaborablesReales = countBusinessDays(year, month, 1);
     const { start: periodStart, end: periodEnd } = getPeriodBounds(year, month);
 
     let diaInicioCalculo = 1;
@@ -284,7 +289,7 @@ export function getBaseSalaryForMonth(emp, year, month) {
         if (ingreso && ingreso > periodEnd) {
             return { monto: 0, esProporcional: false, diasTrabajados: 0, diasLaborablesReales };
         }
-        if (ingreso && ingreso.getFullYear() === year && (ingreso.getMonth() + 1) === month) {
+        if (ingreso && ingreso.getFullYear() === year && ingreso.getMonth() + 1 === month) {
             aplicaIngreso = true;
             diaInicioCalculo = ingreso.getDate();
         }
@@ -294,7 +299,7 @@ export function getBaseSalaryForMonth(emp, year, month) {
     if (salida && salida < periodStart) {
         return { monto: 0, esProporcional: false, diasTrabajados: 0, diasLaborablesReales };
     }
-    if (salida && salida.getFullYear() === year && (salida.getMonth() + 1) === month) {
+    if (salida && salida.getFullYear() === year && salida.getMonth() + 1 === month) {
         aplicaSalida = true;
         diaFinCalculo = salida.getDate();
     }
@@ -309,11 +314,19 @@ export function getBaseSalaryForMonth(emp, year, month) {
         monto: Math.floor(fullSalary),
         esProporcional,
         diasTrabajados,
-        diasLaborablesReales
+        diasLaborablesReales,
     };
 }
 
-export function getSalaryTotalsForPeriod(emp, year, month, vales = [], comisiones = [], descuentos = [], salaries = []) {
+export function getSalaryTotalsForPeriod(
+    emp,
+    year,
+    month,
+    vales = [],
+    comisiones = [],
+    descuentos = [],
+    salaries = []
+) {
     const salaryData = getBaseSalaryForMonth(emp, year, month);
     const salaryBase = salaryData.monto;
 
@@ -357,31 +370,43 @@ export function getSalaryTotalsForPeriod(emp, year, month, vales = [], comisione
     const checkDate = (item, options = {}) => {
         const recordDate = getRecordDate(item, options);
         if (!recordDate) return false;
-        return (recordDate.getMonth() + 1) === month && recordDate.getFullYear() === year;
+        return recordDate.getMonth() + 1 === month && recordDate.getFullYear() === year;
     };
 
-    const misVales = vales.filter(v => {
+    const misVales = vales.filter((v) => {
         if (v.employeeId !== emp.id) return false;
         if (isSoftDeleted(v)) return false;
         // Un vale PENDIENTE no impacta el salario: solo descuenta cuando esta aprobado o cobrado.
 
-        const valeStatus = String(v.status || '').trim().toLowerCase();
+        const valeStatus = String(v.status || '')
+            .trim()
+            .toLowerCase();
         if (valeStatus === 'pendiente' || valeStatus === 'rechazado' || valeStatus === 'anulado') return false;
         const shouldPreferApprovalDate = valeStatus === 'aprobado' || valeStatus === 'cobrado';
         return checkDate(v, { preferApprovalDate: shouldPreferApprovalDate });
     });
     const totalVales = misVales.reduce((sum, v) => sum + parseMonto(v.approvedAmount ?? v.amount), 0);
 
-    const misDescuentos = descuentos.filter(d => d.employeeId === emp.id && !isSoftDeleted(d) && d.status === 'Aplicado' && checkDate(d));
+    const misDescuentos = descuentos.filter(
+        (d) => d.employeeId === emp.id && !isSoftDeleted(d) && d.status === 'Aplicado' && checkDate(d)
+    );
     const totalDescuentos = misDescuentos.reduce((sum, d) => sum + parseMonto(d.amount), 0);
 
-    const misComisiones = comisiones.filter(c => c.employeeId === emp.id && !isSoftDeleted(c) && (c.status === 'Pendiente' || c.status === 'Aprobado') && checkDate(c));
+    const misComisiones = comisiones.filter(
+        (c) =>
+            c.employeeId === emp.id &&
+            !isSoftDeleted(c) &&
+            (c.status === 'Pendiente' || c.status === 'Aprobado') &&
+            checkDate(c)
+    );
     const totalComisiones = misComisiones.reduce((sum, c) => sum + parseMonto(c.amount), 0);
 
-    const misPagos = salaries.filter(s => s.employeeId === emp.id && !isSoftDeleted(s) && Number(s.month) === month && Number(s.year) === year);
+    const misPagos = salaries.filter(
+        (s) => s.employeeId === emp.id && !isSoftDeleted(s) && Number(s.month) === month && Number(s.year) === year
+    );
     const totalPagado = misPagos.reduce((sum, s) => sum + parseMonto(s.netPay), 0);
 
-    const saldoPendiente = (salaryBase + totalComisiones) - (totalVales + totalDescuentos + totalPagado);
+    const saldoPendiente = salaryBase + totalComisiones - (totalVales + totalDescuentos + totalPagado);
 
     return {
         base: salaryBase,
@@ -395,7 +420,7 @@ export function getSalaryTotalsForPeriod(emp, year, month, vales = [], comisione
         comisionesList: misComisiones,
         yaPagado: totalPagado,
         pagosList: misPagos,
-        saldo: saldoPendiente < 0 ? 0 : Math.floor(saldoPendiente)
+        saldo: saldoPendiente < 0 ? 0 : Math.floor(saldoPendiente),
     };
 }
 
@@ -501,18 +526,18 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
         });
     }
 
-    if(branchFilter) {
+    if (branchFilter) {
         const currentVal = branchFilter.value;
         branchFilter.innerHTML = '<option value="TODAS">VER TODAS LAS SUCURSALES</option>';
-        
-        const uniqueBranches = [...new Set(employees.map(e => e.branch).filter(b => b))].sort();
-        uniqueBranches.forEach(suc => {
+
+        const uniqueBranches = [...new Set(employees.map((e) => e.branch).filter((b) => b))].sort();
+        uniqueBranches.forEach((suc) => {
             const opt = document.createElement('option');
             opt.value = suc;
             opt.innerText = suc.toUpperCase();
             branchFilter.appendChild(opt);
         });
-        
+
         if (currentVal && uniqueBranches.includes(currentVal)) {
             branchFilter.value = currentVal;
         }
@@ -530,7 +555,7 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
 
         let visibleCount = 0;
 
-        sortedEmployees.forEach(emp => {
+        sortedEmployees.forEach((emp) => {
             if (!emp.fullName.toLowerCase().includes(term)) return;
             if (selectedBranch !== 'TODAS' && emp.branch !== selectedBranch) return;
             if (!isEmployeeRelevantForPeriod(emp, selectedYear, selectedMonth)) return;
@@ -538,26 +563,28 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                 const salida = new Date(emp.endDate + 'T00:00:00');
                 const mesSalida = salida.getMonth() + 1;
                 const anioSalida = salida.getFullYear();
-                
+
                 if (selectedYear > anioSalida) return;
                 if (selectedYear === anioSalida && selectedMonth > mesSalida) return;
             }
 
             visibleCount++;
             const data = calculateTotals(emp, selectedYear, selectedMonth);
-            
+
             const isPaidOff = data.saldo === 0 && (data.base > 0 || data.yaPagado > 0);
-            
+
             let isInactiveBadge = '';
             let bgCardClass = 'bg-white';
-            
-            if(emp.status === 'INACTIVO') {
+
+            if (emp.status === 'INACTIVO') {
                 isInactiveBadge = `<span class="bg-rose-100 text-rose-600 px-2 py-1 rounded text-[9px] font-black uppercase shadow-sm">LIQ. FINAL (BAJA)</span>`;
                 bgCardClass = 'bg-rose-50/30';
             }
 
-            const statusClass = isPaidOff ? "bg-slate-50 border-slate-200 opacity-60" : `${bgCardClass} border-blue-100 hover:border-blue-400 hover:shadow-xl`;
-            const btnClass = isPaidOff ? "bg-slate-200 text-slate-500" : "bg-blue-600 text-white hover:bg-blue-700";
+            const statusClass = isPaidOff
+                ? 'bg-slate-50 border-slate-200 opacity-60'
+                : `${bgCardClass} border-blue-100 hover:border-blue-400 hover:shadow-xl`;
+            const btnClass = isPaidOff ? 'bg-slate-200 text-slate-500' : 'bg-blue-600 text-white hover:bg-blue-700';
 
             const card = document.createElement('div');
             card.className = `p-5 rounded-[25px] border-2 transition-all cursor-pointer group relative overflow-hidden ${statusClass}`;
@@ -621,38 +648,46 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
 
         const canManageMovements = Boolean(auth.currentUser);
         const historyItems = [
-            ...data.valesList.filter(item => !isSoftDeleted(item)).map(v => ({
-                id: v.id,
-                source: 'vales',
-                type: 'VALE',
-                amount: parseMonto(v.approvedAmount ?? v.amount),
-                detail: v.reason || 'Solicitud de Vale',
-                dateObj: getMovementDate(v)
-            })),
-            ...data.pagosList.filter(item => !isSoftDeleted(item)).map(p => ({
-                id: p.id,
-                source: 'salaries',
-                type: p.type === 'INDIVIDUAL' ? 'ADELANTO' : 'LIQUIDACION',
-                amount: parseMonto(p.netPay),
-                detail: p.details || 'Pago de Salario',
-                dateObj: getMovementDate(p)
-            })),
-            ...data.descuentosList.filter(item => !isSoftDeleted(item)).map(d => ({
-                id: d.id,
-                source: 'descuentos',
-                type: 'DESCUENTO',
-                amount: parseMonto(d.amount),
-                detail: d.reason || 'Descuento Aplicado',
-                dateObj: getMovementDate(d)
-            })),
-            ...data.comisionesList.filter(item => !isSoftDeleted(item)).map(c => ({
-                id: c.id,
-                source: 'comisiones',
-                type: 'COMISION',
-                amount: parseMonto(c.amount),
-                detail: c.reason || c.concept || 'Comision',
-                dateObj: getMovementDate(c)
-            }))
+            ...data.valesList
+                .filter((item) => !isSoftDeleted(item))
+                .map((v) => ({
+                    id: v.id,
+                    source: 'vales',
+                    type: 'VALE',
+                    amount: parseMonto(v.approvedAmount ?? v.amount),
+                    detail: v.reason || 'Solicitud de Vale',
+                    dateObj: getMovementDate(v),
+                })),
+            ...data.pagosList
+                .filter((item) => !isSoftDeleted(item))
+                .map((p) => ({
+                    id: p.id,
+                    source: 'salaries',
+                    type: p.type === 'INDIVIDUAL' ? 'ADELANTO' : 'LIQUIDACION',
+                    amount: parseMonto(p.netPay),
+                    detail: p.details || 'Pago de Salario',
+                    dateObj: getMovementDate(p),
+                })),
+            ...data.descuentosList
+                .filter((item) => !isSoftDeleted(item))
+                .map((d) => ({
+                    id: d.id,
+                    source: 'descuentos',
+                    type: 'DESCUENTO',
+                    amount: parseMonto(d.amount),
+                    detail: d.reason || 'Descuento Aplicado',
+                    dateObj: getMovementDate(d),
+                })),
+            ...data.comisionesList
+                .filter((item) => !isSoftDeleted(item))
+                .map((c) => ({
+                    id: c.id,
+                    source: 'comisiones',
+                    type: 'COMISION',
+                    amount: parseMonto(c.amount),
+                    detail: c.reason || c.concept || 'Comision',
+                    dateObj: getMovementDate(c),
+                })),
         ].sort((a, b) => b.dateObj - a.dateObj);
 
         let historyHTML = '';
@@ -661,17 +696,30 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
             <div class="mt-8">
                 <h4 class="font-bold text-slate-800 text-xs uppercase tracking-widest mb-4 border-b pb-2">Historial de Movimientos (Recientes)</h4>
                 <div class="space-y-2">
-                ${historyItems.map(item => {
-                    const dateStr = item.dateObj.toLocaleDateString('es-PY');
-                    let badgeClass = 'bg-slate-100 text-slate-600';
-                    let amountColor = 'text-slate-700';
+                ${historyItems
+                    .map((item) => {
+                        const dateStr = item.dateObj.toLocaleDateString('es-PY');
+                        let badgeClass = 'bg-slate-100 text-slate-600';
+                        let amountColor = 'text-slate-700';
 
-                    if(item.type === 'VALE') { badgeClass = 'bg-amber-100 text-amber-700'; amountColor = 'text-amber-700'; }
-                    if(item.type === 'ADELANTO') { badgeClass = 'bg-indigo-100 text-indigo-700'; amountColor = 'text-indigo-700'; }
-                    if(item.type === 'DESCUENTO') { badgeClass = 'bg-rose-100 text-rose-700'; amountColor = 'text-rose-700'; }
-                    if(item.type === 'COMISION') { badgeClass = 'bg-emerald-100 text-emerald-700'; amountColor = 'text-emerald-700'; }
+                        if (item.type === 'VALE') {
+                            badgeClass = 'bg-amber-100 text-amber-700';
+                            amountColor = 'text-amber-700';
+                        }
+                        if (item.type === 'ADELANTO') {
+                            badgeClass = 'bg-indigo-100 text-indigo-700';
+                            amountColor = 'text-indigo-700';
+                        }
+                        if (item.type === 'DESCUENTO') {
+                            badgeClass = 'bg-rose-100 text-rose-700';
+                            amountColor = 'text-rose-700';
+                        }
+                        if (item.type === 'COMISION') {
+                            badgeClass = 'bg-emerald-100 text-emerald-700';
+                            amountColor = 'text-emerald-700';
+                        }
 
-                    return `
+                        return `
                     <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
                         <div class="flex items-center gap-3">
                             <div class="text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded text-center min-w-[70px]">${dateStr}</div>
@@ -682,17 +730,22 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="font-black text-sm ${amountColor}">Gs. ${parseMonto(item.amount).toLocaleString()}</span>
-                            ${canManageMovements ? `
+                            ${
+                                canManageMovements
+                                    ? `
                                 <button type="button" data-movement-edit="${item.source}:${item.id}" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-600 transition-colors flex items-center justify-center" title="Editar movimiento">
                                     <i class="ph-bold ph-pencil-simple text-sm"></i>
                                 </button>
                                 <button type="button" data-movement-delete="${item.source}:${item.id}" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-red-100 hover:text-red-600 transition-colors flex items-center justify-center" title="Eliminar movimiento">
                                     <i class="ph-bold ph-trash text-sm"></i>
                                 </button>
-                            ` : ''}
+                            `
+                                    : ''
+                            }
                         </div>
                     </div>`;
-                }).join('')}
+                    })
+                    .join('')}
                 </div>
             </div>`;
         } else {
@@ -700,7 +753,7 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
         }
 
         let alertaBaja = '';
-        if(emp.status === 'INACTIVO') {
+        if (emp.status === 'INACTIVO') {
             alertaBaja = `
             <div class="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-rose-700">
                 <i class="ph-fill ph-warning-octagon text-2xl"></i>
@@ -795,18 +848,18 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
             return [];
         };
 
-        const getMovementRecord = (source, id) => getSourceArray(source).find(item => item.id === id);
+        const getMovementRecord = (source, id) => getSourceArray(source).find((item) => item.id === id);
 
         const applyLocalMovementPatch = (source, id, patch) => {
             const sourceArray = getSourceArray(source);
-            const index = sourceArray.findIndex(item => item.id === id);
+            const index = sourceArray.findIndex((item) => item.id === id);
             if (index >= 0) {
                 sourceArray[index] = { ...sourceArray[index], ...patch };
             }
         };
 
         const rerenderCurrentEmployee = () => {
-            const freshEmployee = employees.find(item => item.id === emp.id) || emp;
+            const freshEmployee = employees.find((item) => item.id === emp.id) || emp;
             const freshData = calculateTotals(freshEmployee, selectedYear, selectedMonth);
             renderGrid();
             renderDetailModal(freshEmployee, freshData);
@@ -868,12 +921,12 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
 
                 const liveRecord = getMovementRecord(movement.source, movement.id);
                 if (!liveRecord) {
-                    toastCb("Error", "El movimiento ya no existe.");
+                    toastCb('Error', 'El movimiento ya no existe.');
                     closeMovementEditor();
                     return;
                 }
                 if (isSoftDeleted(liveRecord)) {
-                    toastCb("Error", "El movimiento ya fue eliminado.");
+                    toastCb('Error', 'El movimiento ya fue eliminado.');
                     closeMovementEditor();
                     return;
                 }
@@ -881,15 +934,16 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                 const newAmount = parseMonto(amountField.value);
                 const newObservation = (observationField.value || '').trim();
 
-                if (!amountField.value.trim()) return toastCb("Error", "Ingrese un monto.");
-                if (amountField.value.includes('-')) return toastCb("Error", "El monto no puede ser negativo.");
-                if (!newAmount && newAmount !== 0) return toastCb("Error", "El monto debe ser numerico.");
-                if (newAmount < 0) return toastCb("Error", "El monto no puede ser negativo.");
-                if (newObservation.length > 300) return toastCb("Error", "La observacion no puede superar 300 caracteres.");
+                if (!amountField.value.trim()) return toastCb('Error', 'Ingrese un monto.');
+                if (amountField.value.includes('-')) return toastCb('Error', 'El monto no puede ser negativo.');
+                if (!newAmount && newAmount !== 0) return toastCb('Error', 'El monto debe ser numerico.');
+                if (newAmount < 0) return toastCb('Error', 'El monto no puede ser negativo.');
+                if (newObservation.length > 300)
+                    return toastCb('Error', 'La observacion no puede superar 300 caracteres.');
 
                 const patch = {
                     editedAt: serverTimestamp(),
-                    editedBy: getCurrentUserEmail()
+                    editedBy: getCurrentUserEmail(),
                 };
 
                 if (movement.source === 'salaries') {
@@ -911,68 +965,73 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                     await updateDoc(doc(db, movement.source, movement.id), patch);
                     applyLocalMovementPatch(movement.source, movement.id, patch);
                     closeMovementEditor();
-                    toastCb("Exito", "Movimiento actualizado.");
+                    toastCb('Exito', 'Movimiento actualizado.');
                     rerenderCurrentEmployee();
                 } catch (error) {
                     console.error(error);
-                    toastCb("Error", "No se pudo actualizar el movimiento.");
+                    toastCb('Error', 'No se pudo actualizar el movimiento.');
                 }
             });
         };
 
         const deleteMovement = async (movement) => {
             const liveRecord = getMovementRecord(movement.source, movement.id);
-            if (!liveRecord) return toastCb("Error", "El movimiento no existe.");
-            if (isSoftDeleted(liveRecord)) return toastCb("Error", "El movimiento ya fue eliminado.");
-            const confirmado = await uiConfirm({ title: 'Eliminar movimiento', message: `Eliminar ${movement.type} por Gs. ${movement.amount.toLocaleString('es-PY')}?`, tone: 'danger', confirmText: 'Eliminar' });
+            if (!liveRecord) return toastCb('Error', 'El movimiento no existe.');
+            if (isSoftDeleted(liveRecord)) return toastCb('Error', 'El movimiento ya fue eliminado.');
+            const confirmado = await uiConfirm({
+                title: 'Eliminar movimiento',
+                message: `Eliminar ${movement.type} por Gs. ${movement.amount.toLocaleString('es-PY')}?`,
+                tone: 'danger',
+                confirmText: 'Eliminar',
+            });
             if (!confirmado) return;
 
             const patch = {
                 deleted: true,
                 deletedAt: serverTimestamp(),
-                deletedBy: getCurrentUserEmail()
+                deletedBy: getCurrentUserEmail(),
             };
 
             try {
                 await updateDoc(doc(db, movement.source, movement.id), patch);
                 applyLocalMovementPatch(movement.source, movement.id, patch);
                 closeMovementEditor();
-                toastCb("Exito", "Movimiento eliminado.");
+                toastCb('Exito', 'Movimiento eliminado.');
                 rerenderCurrentEmployee();
             } catch (error) {
                 console.error(error);
-                toastCb("Error", "No se pudo eliminar el movimiento.");
+                toastCb('Error', 'No se pudo eliminar el movimiento.');
             }
         };
 
         openPayrollModal();
 
         const inputPay = document.getElementById('amountToPay');
-        inputPay.addEventListener('input', (e) => { 
+        inputPay.addEventListener('input', (e) => {
             let val = e.target.value.replace(/\D/g, '');
-            e.target.value = new Intl.NumberFormat('es-PY').format(val); 
+            e.target.value = new Intl.NumberFormat('es-PY').format(val);
         });
 
         if (canManageMovements) {
-            cardContent.querySelectorAll('[data-movement-edit]').forEach(button => {
+            cardContent.querySelectorAll('[data-movement-edit]').forEach((button) => {
                 button.addEventListener('click', () => {
                     const [source, id] = button.dataset.movementEdit.split(':');
-                    const movement = historyItems.find(item => item.source === source && item.id === id);
+                    const movement = historyItems.find((item) => item.source === source && item.id === id);
                     if (movement) openMovementEditor(movement);
                 });
             });
 
-            cardContent.querySelectorAll('[data-movement-delete]').forEach(button => {
+            cardContent.querySelectorAll('[data-movement-delete]').forEach((button) => {
                 button.addEventListener('click', () => {
                     const [source, id] = button.dataset.movementDelete.split(':');
-                    const movement = historyItems.find(item => item.source === source && item.id === id);
+                    const movement = historyItems.find((item) => item.source === source && item.id === id);
                     if (movement) deleteMovement(movement);
                 });
             });
         }
 
         const btnPay = document.getElementById('btnConfirmPay');
-        if(btnPay && !btnPay.disabled) {
+        if (btnPay && !btnPay.disabled) {
             btnPay.onclick = async () => {
                 const amountRaw = parseMonto(inputPay.value);
                 const chosenDate = document.getElementById('liquidDate').value;
@@ -980,66 +1039,84 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                 const ticketEmployee = getEmployeeTicketSnapshot(emp);
                 const paymentCode = buildPaymentCode(emp.id, chosenDate, 'SAL');
                 const paymentGroupId = buildPaymentGroupId(emp.id, chosenDate, 'SAL');
-                if(amountRaw <= 0) return toastCb('Error', 'Ingrese un monto valido');
-                const confirmado = await uiConfirm({ title: 'Registrar pago', message: `Registrar pago de Gs. ${amountRaw.toLocaleString()}?`, tone: 'info', confirmText: 'Registrar' });
+                if (amountRaw <= 0) return toastCb('Error', 'Ingrese un monto valido');
+                const confirmado = await uiConfirm({
+                    title: 'Registrar pago',
+                    message: `Registrar pago de Gs. ${amountRaw.toLocaleString()}?`,
+                    tone: 'info',
+                    confirmText: 'Registrar',
+                });
                 if (!confirmado) return;
-                
-                btnPay.disabled = true; btnPay.innerText = 'GUARDANDO...';
+
+                btnPay.disabled = true;
+                btnPay.innerText = 'GUARDANDO...';
                 try {
                     const isRRHH = currentUserRole === 'RRHH';
-                    await addDoc(collection(db, "salaries"), {
-                        employeeId: emp.id, netPay: amountRaw, salaryBase: data.base,
+                    await addDoc(collection(db, 'salaries'), {
+                        employeeId: emp.id,
+                        netPay: amountRaw,
+                        salaryBase: data.base,
                         ...buildSalaryAuditFields(emp, chosenDate, selectedMonth, selectedYear, 'LIQUIDAR_SALARIOS'),
-                        paymentCode, paymentGroupId, ticketTotalAmount: amountRaw,
-                        month: selectedMonth, year: selectedYear, date: chosenDate,
-                        status: 'Pagado', paymentMethod: 'EFECTIVO', type: 'LIQUIDACION', details: observation, createdAt: serverTimestamp(),
+                        paymentCode,
+                        paymentGroupId,
+                        ticketTotalAmount: amountRaw,
+                        month: selectedMonth,
+                        year: selectedYear,
+                        date: chosenDate,
+                        status: 'Pagado',
+                        paymentMethod: 'EFECTIVO',
+                        type: 'LIQUIDACION',
+                        details: observation,
+                        createdAt: serverTimestamp(),
                         estadoAprobacion: isRRHH ? 'PENDIENTE_RENDICION' : 'APROBADO',
-                        creadoPorRol: currentUserRole
+                        creadoPorRol: currentUserRole,
                     });
-                    
-                    const batch = [];
-                    data.valesList.forEach(v => batch.push(updateDoc(doc(db, "vales", v.id), { status: 'Cobrado' })));
-                    data.comisionesList
-                              .filter(c => c.status === 'Aprobado')
-                              .forEach(c => batch.push(updateDoc(doc(db, "comisiones", c.id), { status: 'Pagado' })));
-                    
-                    if(batch.length > 0) await Promise.all(batch);
 
-                    toastCb("Exito", "Pago registrado correctamente.");
+                    const batch = [];
+                    data.valesList.forEach((v) => batch.push(updateDoc(doc(db, 'vales', v.id), { status: 'Cobrado' })));
+                    data.comisionesList
+                        .filter((c) => c.status === 'Aprobado')
+                        .forEach((c) => batch.push(updateDoc(doc(db, 'comisiones', c.id), { status: 'Pagado' })));
+
+                    if (batch.length > 0) await Promise.all(batch);
+
+                    toastCb('Exito', 'Pago registrado correctamente.');
                     closePayrollModal();
-                    renderGrid(); 
+                    renderGrid();
 
                     // IMPRIMIR TICKET AL CONFIRMAR (CON DOBLE TICKET SI ES RRHH) DE FORMA NO BLOQUEANTE
                     printTicket({
-                        sucursal: ticketEmployee.branch, 
-                        employeeName: ticketEmployee.name, 
-                        employeePosition: ticketEmployee.position, 
+                        sucursal: ticketEmployee.branch,
+                        employeeName: ticketEmployee.name,
+                        employeePosition: ticketEmployee.position,
                         paymentCode,
-                        type: emp.status === 'INACTIVO' ? 'LIQUIDACION FINAL' : 'LIQUIDACION DE SUELDO', 
-                        detail: observation ? `Periodo: ${selectedMonth}/${selectedYear} | Obs: ${observation}` : `Periodo: ${selectedMonth}/${selectedYear}`, 
+                        type: emp.status === 'INACTIVO' ? 'LIQUIDACION FINAL' : 'LIQUIDACION DE SUELDO',
+                        detail: observation
+                            ? `Periodo: ${selectedMonth}/${selectedYear} | Obs: ${observation}`
+                            : `Periodo: ${selectedMonth}/${selectedYear}`,
                         amount: amountRaw,
-                        doubleTicket: isRRHH
-                    }).catch(err => console.error("Error al imprimir ticket:", err));
-                } catch (e) { 
-                    console.error(e); 
-                    toastCb("Error", "Error al procesar el pago."); 
-                    btnPay.disabled = false; 
+                        doubleTicket: isRRHH,
+                    }).catch((err) => console.error('Error al imprimir ticket:', err));
+                } catch (e) {
+                    console.error(e);
+                    toastCb('Error', 'Error al procesar el pago.');
+                    btnPay.disabled = false;
                 }
             };
         }
     }
 
-    if(btnPrint) {
+    if (btnPrint) {
         btnPrint.onclick = () => {
-            const branch = branchFilter ? branchFilter.value : 'TODAS'; 
-            const sorted = [...employees].sort((a,b) => a.fullName.localeCompare(b.fullName));
+            const branch = branchFilter ? branchFilter.value : 'TODAS';
+            const sorted = [...employees].sort((a, b) => a.fullName.localeCompare(b.fullName));
             let filas = '';
             let granTotal = 0;
 
-            sorted.forEach(emp => {
-                if(branch !== 'TODAS' && emp.branch !== branch) return;
+            sorted.forEach((emp) => {
+                if (branch !== 'TODAS' && emp.branch !== branch) return;
                 if (!isEmployeeRelevantForPeriod(emp, selectedYear, selectedMonth)) return;
-                
+
                 // NO IMPRIMIR FANTASMAS EN REPORTES (misma logica que la grilla)
                 if (emp.status === 'INACTIVO' && emp.endDate) {
                     const salida = new Date(emp.endDate + 'T00:00:00');
@@ -1050,10 +1127,10 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
                 }
 
                 const d = calculateTotals(emp, selectedYear, selectedMonth);
-                
+
                 filas += `
                 <tr>
-                    <td>${emp.fullName} ${emp.status==='INACTIVO' ? '(BAJA)' : ''}</td>
+                    <td>${emp.fullName} ${emp.status === 'INACTIVO' ? '(BAJA)' : ''}</td>
                     <td class="text-right">${d.base.toLocaleString()}</td>
                     <td class="text-right">+${d.comisiones.toLocaleString()}</td>
                     <td class="text-right">-${(d.vales + d.descuentos).toLocaleString()}</td>
@@ -1127,14 +1204,16 @@ export function setupPendingSalariesLogic(toastCb, employees, vales, comisiones,
         };
     }
 
-    if(monthInput) {
+    if (monthInput) {
         monthInput.addEventListener('change', (e) => {
             const [y, m] = e.target.value.split('-');
-            selectedYear = parseInt(y); selectedMonth = parseInt(m); renderGrid();
+            selectedYear = parseInt(y);
+            selectedMonth = parseInt(m);
+            renderGrid();
         });
     }
-    if(searchInput) searchInput.addEventListener('input', () => renderGrid());
-    if(branchFilter) branchFilter.addEventListener('change', () => renderGrid());
+    if (searchInput) searchInput.addEventListener('input', () => renderGrid());
+    if (branchFilter) branchFilter.addEventListener('change', () => renderGrid());
 
     renderGrid();
 }
@@ -1176,15 +1255,15 @@ export function getViewIndividualPayment(employees) {
 // ==========================================
 export function setupIndividualPaymentLogic(toastCb, employees, vales, comisiones, descuentos, salaries) {
     const form = document.getElementById('individualPayForm');
-    if (!form) return; 
-    const submitLabel = "REGISTRAR PAGO";
+    if (!form) return;
+    const submitLabel = 'REGISTRAR PAGO';
 
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; 
-    const currentYear = now.getFullYear(); 
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
     const getDinero = (val) => {
         if (!val) return 0;
-        const s = String(val).replace(/\./g, '').replace(/,/g, '').replace(/\D/g, ''); 
+        const s = String(val).replace(/\./g, '').replace(/,/g, '').replace(/\D/g, '');
         return Number(s) || 0;
     };
 
@@ -1203,10 +1282,11 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
         return null;
     };
 
-    const periodToIndex = (year, month) => (year * 12) + (month - 1);
+    const periodToIndex = (year, month) => year * 12 + (month - 1);
     const indexToPeriod = (index) => ({ year: Math.floor(index / 12), month: (index % 12) + 1 });
     const formatPeriod = (month, year) => `${String(month).padStart(2, '0')}/${year}`;
-    const getPreviousPeriod = (year, month) => month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+    const getPreviousPeriod = (year, month) =>
+        month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 
     const getRelevantMonthsUntil = (emp, limitYear, limitMonth) => {
         const previous = getPreviousPeriod(limitYear, limitMonth);
@@ -1226,30 +1306,32 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             return fecha && fecha.m === month && fecha.y === year;
         };
 
-        const totalVales = vales.filter(filterByPeriod).reduce((sum, v) => sum + getDinero(v.approvedAmount ?? v.amount), 0);
+        const totalVales = vales
+            .filter(filterByPeriod)
+            .reduce((sum, v) => sum + getDinero(v.approvedAmount ?? v.amount), 0);
         const totalDesc = descuentos.filter(filterByPeriod).reduce((sum, d) => sum + getDinero(d.amount), 0);
         const totalPagos = salaries.filter(filterByPeriod).reduce((sum, p) => sum + getDinero(p.netPay), 0);
         const totalComis = comisiones.filter(filterByPeriod).reduce((sum, c) => sum + getDinero(c.amount), 0);
-        const saldo = (base + totalComis) - (totalVales + totalDesc + totalPagos);
+        const saldo = base + totalComis - (totalVales + totalDesc + totalPagos);
 
         return {
             year,
             month,
             label: formatPeriod(month, year),
             base,
-            saldo: saldo > 0 ? Math.floor(saldo) : 0
+            saldo: saldo > 0 ? Math.floor(saldo) : 0,
         };
     };
 
     const getDebtSummary = (emp, limitYear, limitMonth) => {
         const breakdown = getRelevantMonthsUntil(emp, limitYear, limitMonth)
-            .map(period => buildMonthlyDebt(emp, period.year, period.month))
-            .filter(period => period.saldo > 0);
+            .map((period) => buildMonthlyDebt(emp, period.year, period.month))
+            .filter((period) => period.saldo > 0);
 
         return {
             breakdown,
             total: breakdown.reduce((sum, item) => sum + item.saldo, 0),
-            baseTotal: breakdown.reduce((sum, item) => sum + item.base, 0)
+            baseTotal: breakdown.reduce((sum, item) => sum + item.base, 0),
         };
     };
 
@@ -1268,8 +1350,8 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
     const listDiv = document.getElementById('payEmpList');
     const idInput = document.getElementById('payEmpId');
     const amountInput = document.getElementById('payAmount');
-    
-    if(amountInput) {
+
+    if (amountInput) {
         amountInput.addEventListener('input', (e) => {
             let val = e.target.value.replace(/\D/g, '');
             e.target.value = new Intl.NumberFormat('es-PY').format(val);
@@ -1281,18 +1363,18 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             const txt = e.target.value.toLowerCase();
             idInput.value = '';
             document.getElementById('payMiniStatement').classList.add('hidden');
-            listDiv.innerHTML = ''; 
+            listDiv.innerHTML = '';
             listDiv.classList.add('hidden');
-            if(!txt) return;
+            if (!txt) return;
 
             // FILTRAMOS PARA QUE NO SE LE PUEDA DAR ADELANTOS A INACTIVOS
-            const matches = employees.filter(e => e.fullName.toLowerCase().includes(txt) && e.status !== 'INACTIVO');
-            
-            if(matches.length > 0) {
+            const matches = employees.filter((e) => e.fullName.toLowerCase().includes(txt) && e.status !== 'INACTIVO');
+
+            if (matches.length > 0) {
                 listDiv.classList.remove('hidden');
-                matches.forEach(emp => {
+                matches.forEach((emp) => {
                     const div = document.createElement('div');
-                    div.className = "p-3 hover:bg-blue-50 cursor-pointer border-b text-sm font-bold text-slate-700";
+                    div.className = 'p-3 hover:bg-blue-50 cursor-pointer border-b text-sm font-bold text-slate-700';
                     div.innerText = emp.fullName;
                     div.onclick = () => {
                         searchInput.value = emp.fullName;
@@ -1308,13 +1390,13 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                         miniDiv.classList.remove('hidden');
                         document.getElementById('miniDate').innerText = debtSummary.breakdown.length
                             ? debtSummary.breakdown[0].label
-                            : formatPeriod(previousPeriod.month, previousPeriod.year); 
-                        
+                            : formatPeriod(previousPeriod.month, previousPeriod.year);
+
                         document.getElementById('miniBase').innerText = debtSummary.baseTotal.toLocaleString();
 
                         if (debtSummary.total > 0) {
                             lblSaldo.innerHTML = `<span class="text-rose-600 font-black animate-pulse">PENDIENTE: Gs. ${debtSummary.total.toLocaleString()}</span>`;
-                            amountInput.value = debtSummary.total.toLocaleString('es-PY'); 
+                            amountInput.value = debtSummary.total.toLocaleString('es-PY');
                             detailInput.value = buildDebtDescription(debtSummary.breakdown);
                         } else {
                             lblSaldo.innerHTML = `<span class="text-emerald-500 font-bold">AL DIA</span>`;
@@ -1329,24 +1411,24 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
     }
 
     form.addEventListener('submit', async (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
         const btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
-        btn.innerText = "GUARDANDO...";
+        btn.innerText = 'GUARDANDO...';
 
         try {
             const empId = idInput.value;
             const montoPago = getDinero(amountInput.value);
-            const fechaPago = document.getElementById('payDate').value; 
+            const fechaPago = document.getElementById('payDate').value;
             const detalle = document.getElementById('payDetail').value;
-            const selectedEmployee = employees.find(e => e.id === empId);
+            const selectedEmployee = employees.find((e) => e.id === empId);
             const ticketEmployee = getEmployeeTicketSnapshot(selectedEmployee);
             const [rawYear, rawMonth] = (fechaPago || '').split('-').map(Number);
             const payYear = rawYear || currentYear;
             const payMonth = rawMonth || currentMonth;
             const paymentCode = buildPaymentCode(empId, fechaPago, 'IND');
             const paymentGroupId = buildPaymentGroupId(empId, fechaPago, 'IND');
-            
+
             if (!empId || montoPago <= 0) {
                 toastCb('Error', 'Por favor seleccione un funcionario y un monto valido.');
                 restoreSubmitButton(btn);
@@ -1360,7 +1442,10 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             }
 
             if (!ticketEmployee.name) {
-                toastCb('Error', 'No se pudo resolver el nombre del funcionario. Seleccione nuevamente desde la lista.');
+                toastCb(
+                    'Error',
+                    'No se pudo resolver el nombre del funcionario. Seleccione nuevamente desde la lista.'
+                );
                 restoreSubmitButton(btn);
                 return;
             }
@@ -1377,12 +1462,20 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                     const aplicado = Math.min(restante, debt.saldo);
                     if (aplicado <= 0) continue;
 
-                    await addDoc(collection(db, "salaries"), {
+                    await addDoc(collection(db, 'salaries'), {
                         employeeId: empId,
                         netPay: aplicado,
                         salaryBase: debt.base,
-                        ...buildSalaryAuditFields(selectedEmployee, fechaPago, debt.month, debt.year, 'PAGO_INDIVIDUAL'),
-                        paymentCode, paymentGroupId, ticketTotalAmount: montoPago,
+                        ...buildSalaryAuditFields(
+                            selectedEmployee,
+                            fechaPago,
+                            debt.month,
+                            debt.year,
+                            'PAGO_INDIVIDUAL'
+                        ),
+                        paymentCode,
+                        paymentGroupId,
+                        ticketTotalAmount: montoPago,
                         date: fechaPago,
                         month: debt.month,
                         year: debt.year,
@@ -1392,7 +1485,7 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                         details: detalle ? `${detalle} (Imputado a ${debt.label})` : `Cancelacion ${debt.label}`,
                         createdAt: serverTimestamp(),
                         estadoAprobacion: isRRHH ? 'PENDIENTE_RENDICION' : 'APROBADO',
-                        creadoPorRol: currentUserRole
+                        creadoPorRol: currentUserRole,
                     });
                     appliedDetails.push(`${debt.label}: Gs. ${aplicado.toLocaleString('es-PY')}`);
                     restante -= aplicado;
@@ -1400,11 +1493,13 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
             }
 
             if (restante > 0) {
-                await addDoc(collection(db, "salaries"), {
+                await addDoc(collection(db, 'salaries'), {
                     employeeId: empId,
                     netPay: restante,
                     ...buildSalaryAuditFields(selectedEmployee, fechaPago, payMonth, payYear, 'PAGO_INDIVIDUAL'),
-                    paymentCode, paymentGroupId, ticketTotalAmount: montoPago,
+                    paymentCode,
+                    paymentGroupId,
+                    ticketTotalAmount: montoPago,
                     date: fechaPago,
                     month: payMonth,
                     year: payYear,
@@ -1414,16 +1509,18 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                     details: detalle,
                     createdAt: serverTimestamp(),
                     estadoAprobacion: isRRHH ? 'PENDIENTE_RENDICION' : 'APROBADO',
-                    creadoPorRol: currentUserRole
+                    creadoPorRol: currentUserRole,
                 });
-                appliedDetails.push(`Adelanto ${formatPeriod(payMonth, payYear)}: Gs. ${restante.toLocaleString('es-PY')}`);
+                appliedDetails.push(
+                    `Adelanto ${formatPeriod(payMonth, payYear)}: Gs. ${restante.toLocaleString('es-PY')}`
+                );
             }
 
             const ticketDetail = detalle
                 ? `${detalle}${appliedDetails.length ? ` | ${appliedDetails.join(' | ')}` : ''}`
-                : (appliedDetails.join(' | ') || 'Adelanto de Sueldo');
+                : appliedDetails.join(' | ') || 'Adelanto de Sueldo';
 
-            toastCb("Exito", "Pago registrado.");
+            toastCb('Exito', 'Pago registrado.');
             form.reset();
             const statement = document.getElementById('payMiniStatement');
             if (statement) statement.classList.add('hidden');
@@ -1437,14 +1534,13 @@ export function setupIndividualPaymentLogic(toastCb, employees, vales, comisione
                 type: 'ADELANTO / PAGO',
                 detail: ticketDetail,
                 amount: montoPago,
-                doubleTicket: isRRHH
-            }).catch(err => console.error("Error al imprimir ticket:", err));
+                doubleTicket: isRRHH,
+            }).catch((err) => console.error('Error al imprimir ticket:', err));
 
             toastCb('Exito', 'Pago registrado correctamente. El sistema ha actualizado los saldos.');
             return;
-
         } catch (error) {
-            console.error("ERROR GRAVE:", error);
+            console.error('ERROR GRAVE:', error);
             toastCb('Error', 'Ocurrio un error al guardar.');
         } finally {
             restoreSubmitButton(btn);
@@ -1461,14 +1557,20 @@ let historyEmployees = [];
 export function getViewHistorySalaries(salaries, employees) {
     historySalaries = salaries || [];
     historyEmployees = employees || [];
-    const sortedSalaries = [...salaries].sort((a,b) => {
+    const sortedSalaries = [...salaries].sort((a, b) => {
         const dateA = a.createdAt ? a.createdAt.toDate() : new Date(a.date || 0);
         const dateB = b.createdAt ? b.createdAt.toDate() : new Date(b.date || 0);
         return dateB - dateA;
     });
 
-    const monthKeys = [...new Set(sortedSalaries.map(p => p.periodKey || (p.date ? String(p.date).slice(0, 7) : '')).filter(Boolean))].sort().reverse();
-    const monthOptions = monthKeys.map(k => `<option value="${k}">${k}</option>`).join('');
+    const monthKeys = [
+        ...new Set(
+            sortedSalaries.map((p) => p.periodKey || (p.date ? String(p.date).slice(0, 7) : '')).filter(Boolean)
+        ),
+    ]
+        .sort()
+        .reverse();
+    const monthOptions = monthKeys.map((k) => `<option value="${k}">${k}</option>`).join('');
 
     let html = `
     <div class="max-w-4xl mx-auto space-y-6 fade-in pb-20">
@@ -1491,23 +1593,40 @@ export function getViewHistorySalaries(salaries, employees) {
         <div id="historyList" class="space-y-4">
             <div id="noResultsMsg" class="hidden text-center py-10 text-slate-400 font-bold">No se encontraron pagos para ese nombre.</div>`;
 
-    if(sortedSalaries.length === 0) return html + '<div class="text-center py-20 text-slate-300 font-bold text-xl">No hay pagos registrados aun.</div></div>';
+    if (sortedSalaries.length === 0)
+        return (
+            html +
+            '<div class="text-center py-20 text-slate-300 font-bold text-xl">No hay pagos registrados aun.</div></div>'
+        );
 
     sortedSalaries.forEach((pay, index) => {
-        const emp = employees ? employees.find(e => e.id === pay.employeeId) : null;
+        const emp = employees ? employees.find((e) => e.id === pay.employeeId) : null;
         const snapshotName = (pay.employeeName || '').trim();
         const snapshotPosition = (pay.employeePosition || '').trim();
-        const paymentCode = pay.paymentCode || pay.paymentGroupId || `LEGACY-${String(pay.id || '').slice(-6).toUpperCase()}`;
+        const paymentCode =
+            pay.paymentCode ||
+            pay.paymentGroupId ||
+            `LEGACY-${String(pay.id || '')
+                .slice(-6)
+                .toUpperCase()}`;
         const empName = snapshotName || (emp ? emp.fullName : 'Funcionario Eliminado');
         const empPos = snapshotPosition || (emp ? emp.position : '---');
         const amount = pay.netPay.toLocaleString();
-        let fechaDisplay = pay.date; let horaDisplay = '';
-        if(pay.createdAt && pay.createdAt.toDate) {
+        let fechaDisplay = pay.date;
+        let horaDisplay = '';
+        if (pay.createdAt && pay.createdAt.toDate) {
             const d = pay.createdAt.toDate();
-            if(pay.date) { const parts = pay.date.split('-'); if(parts.length === 3) fechaDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`; } 
-            else { fechaDisplay = d.toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' }); }
+            if (pay.date) {
+                const parts = pay.date.split('-');
+                if (parts.length === 3) fechaDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            } else {
+                fechaDisplay = d.toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' });
+            }
             horaDisplay = d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
-        } else if (pay.date) { const parts = pay.date.split('-'); if(parts.length === 3) fechaDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`; }
+        } else if (pay.date) {
+            const parts = pay.date.split('-');
+            if (parts.length === 3) fechaDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
 
         const isInd = pay.type === 'INDIVIDUAL';
         const icon = isInd ? 'ph-hand-coins' : 'ph-wallet';
@@ -1523,7 +1642,7 @@ export function getViewHistorySalaries(salaries, employees) {
                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${empPos}</p>
                         <div class="flex flex-wrap items-center gap-2 mt-1">
                             <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1"><i class="ph-bold ph-calendar-blank"></i> ${fechaDisplay}</span>
-                            ${horaDisplay?`<span class="text-[10px] font-bold text-slate-400 flex items-center gap-1"><i class="ph-bold ph-clock"></i> ${horaDisplay}</span>`:''}
+                            ${horaDisplay ? `<span class="text-[10px] font-bold text-slate-400 flex items-center gap-1"><i class="ph-bold ph-clock"></i> ${horaDisplay}</span>` : ''}
                             <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">ID: ${pay.employeeId || 'S/ID'}</span>
                             <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">Cod: ${paymentCode}</span>
                             ${pay.sourceModule ? `<span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">${pay.sourceModule}</span>` : ''}
@@ -1532,16 +1651,19 @@ export function getViewHistorySalaries(salaries, employees) {
                 </div>
                 <div class="text-right w-full md:w-auto border-t md:border-t-0 border-slate-50 pt-3 md:pt-0 pl-0 md:pl-6 flex justify-between md:block items-center">
                     <span class="md:hidden text-xs font-bold text-slate-400 uppercase">${pay.type}</span>
-                    <div><p class="font-black text-2xl text-slate-800">Gs. ${amount}</p><p class="text-[10px] text-slate-400 font-bold uppercase text-right">${pay.details || (isInd?'Adelanto':'Liquidacion')}</p></div>
+                    <div><p class="font-black text-2xl text-slate-800">Gs. ${amount}</p><p class="text-[10px] text-slate-400 font-bold uppercase text-right">${pay.details || (isInd ? 'Adelanto' : 'Liquidacion')}</p></div>
                 </div>
             </div>`;
     });
-    return html + `
+    return (
+        html +
+        `
         <div class="flex flex-col items-center gap-3 pt-4">
             <p id="historyCount" class="text-xs font-bold text-slate-400"></p>
             <button id="historyLoadMore" type="button" onclick="loadMorePaymentHistory()" class="hidden bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-black text-[11px] uppercase tracking-wider px-6 py-3 rounded-2xl shadow-sm transition-colors"></button>
         </div>
-    </div></div>`;
+    </div></div>`
+    );
 }
 
 export function getViewPaymentAudit(salaries, employees) {
@@ -1551,9 +1673,9 @@ export function getViewPaymentAudit(salaries, employees) {
         return dateB - dateA;
     });
 
-    const groupedTickets = new Set(sortedSalaries.map(pay => pay.paymentGroupId || `DOC-${pay.id}`));
-    const mismatchedRecords = sortedSalaries.filter(pay => {
-        const currentEmployee = employees.find(emp => emp.id === pay.employeeId);
+    const groupedTickets = new Set(sortedSalaries.map((pay) => pay.paymentGroupId || `DOC-${pay.id}`));
+    const mismatchedRecords = sortedSalaries.filter((pay) => {
+        const currentEmployee = employees.find((emp) => emp.id === pay.employeeId);
         const snapshotName = (pay.employeeName || '').trim().toUpperCase();
         const currentName = currentEmployee?.fullName ? currentEmployee.fullName.trim().toUpperCase() : '';
         return (snapshotName && currentName && snapshotName !== currentName) || (!currentEmployee && snapshotName);
@@ -1562,17 +1684,24 @@ export function getViewPaymentAudit(salaries, employees) {
 
     let rows = '';
 
-    sortedSalaries.forEach(pay => {
-        const currentEmployee = employees.find(emp => emp.id === pay.employeeId);
+    sortedSalaries.forEach((pay) => {
+        const currentEmployee = employees.find((emp) => emp.id === pay.employeeId);
         const snapshotName = (pay.employeeName || '').trim();
         const snapshotPosition = (pay.employeePosition || '').trim();
-        const paymentCode = pay.paymentCode || pay.paymentGroupId || `LEGACY-${String(pay.id || '').slice(-6).toUpperCase()}`;
+        const paymentCode =
+            pay.paymentCode ||
+            pay.paymentGroupId ||
+            `LEGACY-${String(pay.id || '')
+                .slice(-6)
+                .toUpperCase()}`;
         const displayName = snapshotName || currentEmployee?.fullName || 'FUNCIONARIO NO DISPONIBLE';
         const currentName = currentEmployee?.fullName || '';
         const displayPosition = snapshotPosition || currentEmployee?.position || 'SIN CARGO';
         const createdAtDate = pay.createdAt?.toDate ? pay.createdAt.toDate() : null;
         const serverDate = createdAtDate ? createdAtDate.toLocaleDateString('es-PY') : 'S/F';
-        const serverTime = createdAtDate ? createdAtDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--';
+        const serverTime = createdAtDate
+            ? createdAtDate.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : '--:--:--';
         const manualDate = pay.date || '';
         const localDate = pay.createdAtLocal ? pay.createdAtLocal.slice(0, 10) : '';
         const localTime = pay.createdAtLocal ? pay.createdAtLocal.slice(11, 19) : '--:--:--';
@@ -1582,14 +1711,20 @@ export function getViewPaymentAudit(salaries, employees) {
         const typeLabel = pay.type || 'SIN TIPO';
         const paymentGroupId = pay.paymentGroupId || `LEGACY-${pay.id}`;
         const periodKey = pay.periodKey || `${pay.year || '----'}-${String(pay.month || '--').padStart(2, '0')}`;
-        const snapshotMismatch = snapshotName && currentName && snapshotName.toUpperCase() !== currentName.toUpperCase();
+        const snapshotMismatch =
+            snapshotName && currentName && snapshotName.toUpperCase() !== currentName.toUpperCase();
         const employeeMissing = !currentEmployee;
         const warningBadge = snapshotMismatch
             ? '<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-[10px] font-black uppercase">Nombre distinto al legajo actual</span>'
-            : (employeeMissing ? '<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded-full text-[10px] font-black uppercase">Legajo no disponible</span>' : '');
-        const sourceColor = sourceModule === 'PAGO_INDIVIDUAL'
-            ? 'bg-indigo-100 text-indigo-700'
-            : (sourceModule === 'LIQUIDAR_SALARIOS' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700');
+            : employeeMissing
+              ? '<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded-full text-[10px] font-black uppercase">Legajo no disponible</span>'
+              : '';
+        const sourceColor =
+            sourceModule === 'PAGO_INDIVIDUAL'
+                ? 'bg-indigo-100 text-indigo-700'
+                : sourceModule === 'LIQUIDAR_SALARIOS'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-100 text-slate-700';
 
         rows += `
             <article class="audit-item bg-white border border-slate-100 rounded-[28px] p-5 shadow-sm hover:shadow-lg transition-all space-y-4"
@@ -1731,7 +1866,7 @@ export function setupPaymentAuditLogic() {
         let count = 0;
         let total = 0;
 
-        items.forEach(item => {
+        items.forEach((item) => {
             const itemSearch = item.dataset.search || '';
             const itemDate = item.dataset.date || '';
             const itemAmount = normalizeDigits(item.dataset.amount || '');
@@ -1759,7 +1894,7 @@ export function setupPaymentAuditLogic() {
         if (emptyState) emptyState.classList.toggle('hidden', count > 0);
     };
 
-    [searchInput, dateInput, sourceInput, typeInput].forEach(input => input?.addEventListener('input', applyFilters));
+    [searchInput, dateInput, sourceInput, typeInput].forEach((input) => input?.addEventListener('input', applyFilters));
     amountInput?.addEventListener('input', (e) => {
         let value = e.target.value.replace(/\D/g, '');
         e.target.value = value ? new Intl.NumberFormat('es-PY').format(value) : '';
@@ -1771,22 +1906,27 @@ export function setupPaymentAuditLogic() {
 
 export function initSalariosGlobalListeners(toastCb) {
     window.exportSalariesCsv = () => {
-        const empName = (id) => historyEmployees.find(e => e.id === id)?.fullName || id;
+        const empName = (id) => historyEmployees.find((e) => e.id === id)?.fullName || id;
         const columns = [
             { label: 'Fecha', value: (s) => s.date || '' },
             { label: 'Funcionario', value: (s) => s.employeeName || empName(s.employeeId) },
             { label: 'Cargo', value: (s) => s.employeePosition || '' },
             { label: 'Sucursal', value: (s) => s.employeeBranch || '' },
-            { label: 'Periodo', value: (s) => s.periodKey || (s.month && s.year ? `${s.year}-${String(s.month).padStart(2, '0')}` : '') },
+            {
+                label: 'Periodo',
+                value: (s) => s.periodKey || (s.month && s.year ? `${s.year}-${String(s.month).padStart(2, '0')}` : ''),
+            },
             { label: 'Tipo', value: (s) => s.type || 'LIQUIDACION' },
             { label: 'Detalle', value: (s) => s.details || '' },
             { label: 'Neto', value: (s) => Number(s.netPay) || 0 },
             { label: 'Estado', value: (s) => s.status || '' },
             { label: 'Rendicion', value: (s) => s.estadoAprobacion || '' },
         ];
-        Export.downloadCsv(`pagos-${Export.dateStamp()}`, columns, historySalaries.filter(s => !s.deleted));
+        Export.downloadCsv(
+            `pagos-${Export.dateStamp()}`,
+            columns,
+            historySalaries.filter((s) => !s.deleted)
+        );
         toastCb('Exportado', 'CSV de pagos generado.');
     };
 }
-
-

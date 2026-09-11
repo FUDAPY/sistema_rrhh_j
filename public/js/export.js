@@ -13,7 +13,9 @@ function csvCell(value) {
 export function toCsv(columns, rows = []) {
     const header = columns.map((col) => csvCell(col.label)).join(';');
     const body = rows
-        .map((row) => columns.map((col) => csvCell(typeof col.value === 'function' ? col.value(row) : row[col.value])).join(';'))
+        .map((row) =>
+            columns.map((col) => csvCell(typeof col.value === 'function' ? col.value(row) : row[col.value])).join(';')
+        )
         .join('\r\n');
     return `${header}\r\n${body}`;
 }

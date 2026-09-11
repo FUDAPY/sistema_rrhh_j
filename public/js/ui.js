@@ -2,10 +2,30 @@
 // Toasts y modales propios (reemplazan alert/confirm/prompt).
 
 const TONES = {
-    info: { accent: 'border-blue-600', chip: 'bg-blue-50 text-blue-600', icon: 'ph-info', button: 'bg-blue-600 hover:bg-blue-700' },
-    success: { accent: 'border-emerald-500', chip: 'bg-emerald-50 text-emerald-600', icon: 'ph-check-circle', button: 'bg-emerald-600 hover:bg-emerald-700' },
-    warning: { accent: 'border-amber-500', chip: 'bg-amber-50 text-amber-600', icon: 'ph-warning-circle', button: 'bg-amber-600 hover:bg-amber-700' },
-    danger: { accent: 'border-rose-500', chip: 'bg-rose-50 text-rose-600', icon: 'ph-warning', button: 'bg-rose-600 hover:bg-rose-700' },
+    info: {
+        accent: 'border-blue-600',
+        chip: 'bg-blue-50 text-blue-600',
+        icon: 'ph-info',
+        button: 'bg-blue-600 hover:bg-blue-700',
+    },
+    success: {
+        accent: 'border-emerald-500',
+        chip: 'bg-emerald-50 text-emerald-600',
+        icon: 'ph-check-circle',
+        button: 'bg-emerald-600 hover:bg-emerald-700',
+    },
+    warning: {
+        accent: 'border-amber-500',
+        chip: 'bg-amber-50 text-amber-600',
+        icon: 'ph-warning-circle',
+        button: 'bg-amber-600 hover:bg-amber-700',
+    },
+    danger: {
+        accent: 'border-rose-500',
+        chip: 'bg-rose-50 text-rose-600',
+        icon: 'ph-warning',
+        button: 'bg-rose-600 hover:bg-rose-700',
+    },
 };
 
 function toneOf(type) {
@@ -13,7 +33,10 @@ function toneOf(type) {
 }
 
 function escapeHtml(text) {
-    return String(text ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    return String(text ?? '').replace(
+        /[&<>"']/g,
+        (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
+    );
 }
 
 // Toast
@@ -50,11 +73,21 @@ export function uiToast(message, type = 'info', title = '') {
 }
 
 // Modal
-function openModal({ tone = 'info', title, message, confirmText = 'Confirmar', cancelText = 'Cancelar', withCancel = true, input = null, inputType = 'text' }) {
+function openModal({
+    tone = 'info',
+    title,
+    message,
+    confirmText = 'Confirmar',
+    cancelText = 'Cancelar',
+    withCancel = true,
+    input = null,
+    inputType = 'text',
+}) {
     return new Promise((resolve) => {
         const palette = toneOf(tone);
         const overlay = document.createElement('div');
-        overlay.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4';
+        overlay.className =
+            'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4';
         overlay.innerHTML = `
             <div class="bg-white w-full max-w-md rounded-[28px] shadow-2xl border border-slate-100 overflow-hidden animate-fade-in-up" role="dialog" aria-modal="true">
                 <div class="p-6 flex items-start gap-4">
@@ -143,4 +176,3 @@ export async function uiAlert(options = {}) {
         withCancel: false,
     });
 }
-

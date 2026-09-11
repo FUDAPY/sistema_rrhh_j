@@ -31,10 +31,7 @@ const passwordHash = await bcrypt.hash(password, 10);
 const existing = await users.findOne({ email });
 
 if (existing) {
-    await users.updateOne(
-        { _id: existing._id },
-        { $set: { passwordHash, role, fullName, updatedAt: new Date() } }
-    );
+    await users.updateOne({ _id: existing._id }, { $set: { passwordHash, role, fullName, updatedAt: new Date() } });
     console.log(`Usuario actualizado: ${email} (rol ${role})`);
 } else {
     const id = new ObjectId().toHexString();

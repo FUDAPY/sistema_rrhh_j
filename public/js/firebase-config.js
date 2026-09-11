@@ -3,5 +3,3 @@
 export { db } from './db.js';
 export { auth } from './auth.js';
 export const firebaseConfig = {};
-
-

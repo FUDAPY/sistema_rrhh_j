@@ -8,7 +8,9 @@ const SECRET = process.env.JWT_SECRET || 'cambiar-este-secreto';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '12h';
 
 export async function findUserByEmail(email) {
-    return getDb().collection('users').findOne({ email: String(email || '').toLowerCase() });
+    return getDb()
+        .collection('users')
+        .findOne({ email: String(email || '').toLowerCase() });
 }
 
 export async function findUserById(id) {
@@ -43,7 +45,7 @@ export function publicUser(user) {
 export function authOptional() {
     return (req, _res, next) => {
         const header = req.headers.authorization || '';
-        const token = header.startsWith('Bearer ') ? header.slice(7) : (req.query?.token || null);
+        const token = header.startsWith('Bearer ') ? header.slice(7) : req.query?.token || null;
         if (token) {
             try {
                 req.user = jwt.verify(token, SECRET);

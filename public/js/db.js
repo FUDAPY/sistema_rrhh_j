@@ -42,7 +42,8 @@ export function query(ref, ...constraints) {
     const base = { name: ref.name, where: [], orderBy: [], limit: undefined };
     for (const constraint of constraints) {
         if (!constraint) continue;
-        if (constraint.__type === 'where') base.where.push({ field: constraint.field, op: constraint.op, value: constraint.value });
+        if (constraint.__type === 'where')
+            base.where.push({ field: constraint.field, op: constraint.op, value: constraint.value });
         else if (constraint.__type === 'orderBy') base.orderBy.push({ field: constraint.field, dir: constraint.dir });
         else if (constraint.__type === 'limit') base.limit = constraint.n;
     }
@@ -220,4 +221,3 @@ export function onSnapshot(ref, onNext, onError) {
 
     return () => source.close();
 }
-

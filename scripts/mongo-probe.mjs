@@ -23,7 +23,9 @@ try {
     for (const dbInfo of databases) {
         if (['admin', 'local', 'config'].includes(dbInfo.name)) continue;
         const cols = await client.db(dbInfo.name).listCollections().toArray();
-        console.log(`- ${dbInfo.name}: ${cols.length} colecciones -> ${cols.map((c) => c.name).join(', ') || '(vacia)'}`);
+        console.log(
+            `- ${dbInfo.name}: ${cols.length} colecciones -> ${cols.map((c) => c.name).join(', ') || '(vacia)'}`
+        );
     }
 } catch (error) {
     console.error('ERROR de conexion:', error.message);

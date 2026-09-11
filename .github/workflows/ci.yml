@@ -1,32 +1,35 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+    push:
+        branches: [main]
+    pull_request:
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    quality:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  # vitest@5 exige Node >= 22.12
+                  node-version: '22'
+                  cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Lint
-        run: npm run lint
-        continue-on-error: true
+            - name: Format check
+              run: npm run format:check
 
-      - name: Unit tests
-        run: npm run test
+            - name: Lint
+              run: npm run lint
 
-      - name: Build
-        run: npm run build
+            - name: Unit tests + coverage
+              run: npm run test:coverage
+
+            - name: Build
+              run: npm run build

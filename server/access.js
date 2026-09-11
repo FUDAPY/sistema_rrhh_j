@@ -61,7 +61,11 @@ export function evaluateAccess({ user, collection, method, payload }) {
             const keys = Object.keys(payload || {}).filter((key) => !SERVER_FIELDS.has(key));
             const invalid = keys.filter((key) => !allowedFields.has(key));
             if (invalid.length) {
-                return { allow: false, status: 403, reason: `RRHH solo puede modificar: ${[...allowedFields].join(', ')}` };
+                return {
+                    allow: false,
+                    status: 403,
+                    reason: `RRHH solo puede modificar: ${[...allowedFields].join(', ')}`,
+                };
             }
         }
 

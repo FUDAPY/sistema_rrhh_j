@@ -1,208 +1,241 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0f172a">
-    <title>Solicitud de Vales | Lin Group</title>
-    <link rel="apple-touch-icon" href="./icons/icon-192.png">
-    <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./css/app.css">
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .fade-in { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-6">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#0f172a" />
+        <title>Solicitud de Vales | Lin Group</title>
+        <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+        <link rel="manifest" href="./manifest.webmanifest" />
+        <link rel="stylesheet" href="./css/app.css" />
+        <script src="https://unpkg.com/@phosphor-icons/web"></script>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+            .fade-in { animation: fadeIn 0.5s ease-out; }
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        </style>
+    </head>
+    <body class="min-h-screen flex items-center justify-center p-6">
+        <div
+            class="max-w-md w-full bg-white rounded-[40px] shadow-2xl overflow-hidden fade-in border border-slate-100 relative"
+        >
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
 
-    <div class="max-w-md w-full bg-white rounded-[40px] shadow-2xl overflow-hidden fade-in border border-slate-100 relative">
-        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-
-        <div class="p-10">
-            <div class="text-center mb-8">
-                <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4 shadow-sm">
-                    <i class="ph-duotone ph-hand-coins"></i>
+            <div class="p-10">
+                <div class="text-center mb-8">
+                    <div
+                        class="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4 shadow-sm"
+                    >
+                        <i class="ph-duotone ph-hand-coins"></i>
+                    </div>
+                    <h1 class="text-2xl font-black text-slate-800 tracking-tight">Solicitud de Vale</h1>
+                    <p class="text-slate-400 text-sm font-medium">Complete los datos para solicitar un adelanto.</p>
                 </div>
-                <h1 class="text-2xl font-black text-slate-800 tracking-tight">Solicitud de Vale</h1>
-                <p class="text-slate-400 text-sm font-medium">Complete los datos para solicitar un adelanto.</p>
+
+                <form id="requestForm" class="space-y-6">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block"
+                            >Funcionario</label
+                        >
+                        <div class="relative">
+                            <select
+                                id="employeeSelect"
+                                required
+                                class="w-full bg-slate-50 border-2 border-slate-100 text-slate-700 font-bold rounded-2xl p-4 appearance-none outline-none focus:border-blue-500 transition-all"
+                            >
+                                <option value="">Cargando lista...</option>
+                            </select>
+                            <i
+                                class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            ></i>
+                        </div>
+                        <p id="limitInfo" class="text-xs font-black mt-2 text-center h-4"></p>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block"
+                            >Monto a Solicitar</label
+                        >
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">Gs.</span>
+                            <input
+                                type="text"
+                                id="amountInput"
+                                required
+                                placeholder="0"
+                                class="w-full bg-slate-50 border-2 border-slate-100 text-slate-800 font-black text-xl rounded-2xl p-4 pl-12 outline-none focus:border-blue-500 transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block"
+                            >Motivo</label
+                        >
+                        <input
+                            type="text"
+                            id="reasonInput"
+                            required
+                            placeholder="Ej: Supermercado, Farmacia..."
+                            class="w-full bg-slate-50 border-2 border-slate-100 text-slate-700 font-bold rounded-2xl p-4 outline-none focus:border-blue-500 transition-all"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="btnSubmit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all transform active:scale-95 flex justify-center items-center gap-2"
+                    >
+                        <i class="ph-bold ph-paper-plane-right text-xl"></i> ENVIAR SOLICITUD
+                    </button>
+                </form>
             </div>
 
-            <form id="requestForm" class="space-y-6">
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block">Funcionario</label>
-                    <div class="relative">
-                        <select id="employeeSelect" required class="w-full bg-slate-50 border-2 border-slate-100 text-slate-700 font-bold rounded-2xl p-4 appearance-none outline-none focus:border-blue-500 transition-all">
-                            <option value="">Cargando lista...</option>
-                        </select>
-                        <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                    </div>
-                    <p id="limitInfo" class="text-xs font-black mt-2 text-center h-4"></p>
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block">Monto a Solicitar</label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">Gs.</span>
-                        <input type="text" id="amountInput" required placeholder="0" class="w-full bg-slate-50 border-2 border-slate-100 text-slate-800 font-black text-xl rounded-2xl p-4 pl-12 outline-none focus:border-blue-500 transition-all">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block">Motivo</label>
-                    <input type="text" id="reasonInput" required placeholder="Ej: Supermercado, Farmacia..." class="w-full bg-slate-50 border-2 border-slate-100 text-slate-700 font-bold rounded-2xl p-4 outline-none focus:border-blue-500 transition-all">
-                </div>
-
-                <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all transform active:scale-95 flex justify-center items-center gap-2">
-                    <i class="ph-bold ph-paper-plane-right text-xl"></i> ENVIAR SOLICITUD
-                </button>
-            </form>
+            <div class="bg-slate-50 p-4 text-center border-t border-slate-100">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">SISTEMA LIN GROUP v5.7.0</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-1">
+                    © 2026 Giuliano E. M. Catella Riveros (Otelax Dev) · Licencia MIT (atribucion obligatoria)
+                </p>
+            </div>
         </div>
 
-        <div class="bg-slate-50 p-4 text-center border-t border-slate-100">
-            <p class="text-[10px] text-slate-400 font-bold uppercase">SISTEMA LIN GROUP v5.7.0</p>
-            <p class="text-[10px] text-slate-400 font-medium mt-1">© 2026 Giuliano E. M. Catella Riveros (Otelax Dev) · Licencia MIT (atribucion obligatoria)</p>
-        </div>
-    </div>
+        <script type="module">
+            import { collection, getDocs, addDoc, query, serverTimestamp } from "./js/db.js";
+            import { db } from "./js/firebase-config.js";
+            import { uiToast } from "./js/ui.js";
+            import { getValeAvailable, isValeLimitExhausted } from "./js/vales-cupo.js";
 
-    <script type="module">
-        import { collection, getDocs, addDoc, query, serverTimestamp } from "./js/db.js";
-        import { db } from "./js/firebase-config.js";
-        import { uiToast } from "./js/ui.js";
-        import { getValeAvailable, isValeLimitExhausted } from "./js/vales-cupo.js";
+            const select = document.getElementById("employeeSelect");
+            const amountInput = document.getElementById("amountInput");
+            const info = document.getElementById("limitInfo");
+            const btn = document.getElementById("btnSubmit");
 
-        const select = document.getElementById("employeeSelect");
-        const amountInput = document.getElementById("amountInput");
-        const info = document.getElementById("limitInfo");
-        const btn = document.getElementById("btnSubmit");
+            let employees = [];
+            let valesMonth = [];
+            let currentAvailable = 0;
 
-        let employees = [];
-        let valesMonth = [];
-        let currentAvailable = 0;
+            async function loadData() {
+                try {
+                    const empSnap = await getDocs(collection(db, "employees"));
+                    employees = [];
+                    select.innerHTML = '<option value="">-- Seleccione su nombre --</option>';
 
-        async function loadData() {
-            try {
-                const empSnap = await getDocs(collection(db, "employees"));
-                employees = [];
-                select.innerHTML = '<option value="">-- Seleccione su nombre --</option>';
+                    empSnap.forEach((doc) => {
+                        const data = doc.data();
+                        employees.push({ id: doc.id, ...data });
+                        const opt = document.createElement("option");
+                        opt.value = doc.id;
+                        opt.innerText = data.fullName;
+                        select.appendChild(opt);
+                    });
 
-                empSnap.forEach((doc) => {
-                    const data = doc.data();
-                    employees.push({ id: doc.id, ...data });
-                    const opt = document.createElement("option");
-                    opt.value = doc.id;
-                    opt.innerText = data.fullName;
-                    select.appendChild(opt);
-                });
-
-                const now = new Date();
-                const vSnap = await getDocs(query(collection(db, "vales")));
-                valesMonth = [];
-                vSnap.forEach((doc) => {
-                    const data = doc.data();
-                    const valeDate = data.createdAt ? data.createdAt.toDate() : new Date();
-                    if (valeDate.getMonth() === now.getMonth() && valeDate.getFullYear() === now.getFullYear()) {
-                        valesMonth.push(data);
-                    }
-                });
-            } catch (error) {
-                console.error("Error cargando datos:", error);
-                select.innerHTML = '<option value="">Error de conexion</option>';
+                    const now = new Date();
+                    const vSnap = await getDocs(query(collection(db, "vales")));
+                    valesMonth = [];
+                    vSnap.forEach((doc) => {
+                        const data = doc.data();
+                        const valeDate = data.createdAt ? data.createdAt.toDate() : new Date();
+                        if (valeDate.getMonth() === now.getMonth() && valeDate.getFullYear() === now.getFullYear()) {
+                            valesMonth.push(data);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Error cargando datos:", error);
+                    select.innerHTML = '<option value="">Error de conexion</option>';
+                }
             }
-        }
-        loadData();
+            loadData();
 
-        select.addEventListener("change", () => {
-            const empId = select.value;
-            info.innerHTML = "";
-            info.className = "text-xs font-black mt-2 text-center h-4";
-            amountInput.disabled = false;
-            amountInput.value = "";
-            amountInput.placeholder = "0";
-            btn.disabled = false;
-            btn.classList.remove("bg-slate-400", "cursor-not-allowed");
-            btn.classList.add("bg-blue-600", "hover:bg-blue-700");
-
-            if (!empId) return;
-
-            const emp = employees.find((employee) => employee.id === empId);
-            if (!emp) return;
-
-            const salary = Number(emp.salary) || 0;
-            currentAvailable = getValeAvailable(salary, valesMonth, empId);
-
-            if (isValeLimitExhausted(currentAvailable)) {
-                info.innerHTML = "YA HAS UTILIZADO TODO TU CUPO DE VALES";
-                info.className = "text-xs font-black mt-2 text-center h-4 text-red-500 animate-pulse";
-                amountInput.disabled = true;
-                amountInput.placeholder = "Agotado";
+            select.addEventListener("change", () => {
+                const empId = select.value;
+                info.innerHTML = "";
+                info.className = "text-xs font-black mt-2 text-center h-4";
+                amountInput.disabled = false;
                 amountInput.value = "";
-                btn.disabled = true;
-                btn.classList.remove("bg-blue-600", "hover:bg-blue-700");
-                btn.classList.add("bg-slate-400", "cursor-not-allowed");
-            }
-        });
-
-        amountInput.addEventListener("input", (event) => {
-            const value = event.target.value.replace(/\D/g, "");
-            if (value) {
-                event.target.value = new Intl.NumberFormat("es-PY").format(value);
-            }
-        });
-
-        document.getElementById("requestForm").addEventListener("submit", async (event) => {
-            event.preventDefault();
-            if (btn.disabled) return;
-
-            const amount = Number(amountInput.value.replace(/\./g, ""));
-            const reason = document.getElementById("reasonInput").value;
-            const empId = select.value;
-            const selectedEmployee = employees.find((employee) => employee.id === empId);
-
-            if (!empId || amount <= 0) {
-                uiToast('Verifique los datos.', 'warning', 'Datos incompletos');
-                return;
-            }
-
-            if (!selectedEmployee || !selectedEmployee.fullName) {
-                uiToast('No se pudo resolver el funcionario seleccionado.', 'error', 'Error');
-                return;
-            }
-
-            if (amount > currentAvailable) {
-                uiToast('El monto solicitado excede su limite disponible actual. Intente con un monto menor.', 'warning', 'Limite excedido');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerText = "ENVIANDO...";
-
-            try {
-                await addDoc(collection(db, "vales"), {
-                    employeeId: empId,
-                    amount,
-                    requestedAmount: amount,
-                    reason,
-                    status: "Pendiente",
-                    employeeName: selectedEmployee.fullName || "",
-                    employeeNameUpper: selectedEmployee.fullName ? selectedEmployee.fullName.toUpperCase() : "",
-                    employeeBranch: selectedEmployee.branch || "",
-                    employeePosition: selectedEmployee.position || "",
-                    createdAt: serverTimestamp(),
-                    createdAtLocal: new Date().toISOString()
-                });
-
-                uiToast('Solicitud enviada correctamente. Espere la aprobacion de RRHH.', 'success', 'Enviado');
-                setTimeout(() => window.location.reload(), 1400);
-            } catch (error) {
-                console.error(error);
-                uiToast('Error al enviar solicitud.', 'error', 'Error');
+                amountInput.placeholder = "0";
                 btn.disabled = false;
-                btn.innerText = "REINTENTAR";
-            }
-        });
-    </script>
-</body>
+                btn.classList.remove("bg-slate-400", "cursor-not-allowed");
+                btn.classList.add("bg-blue-600", "hover:bg-blue-700");
+
+                if (!empId) return;
+
+                const emp = employees.find((employee) => employee.id === empId);
+                if (!emp) return;
+
+                const salary = Number(emp.salary) || 0;
+                currentAvailable = getValeAvailable(salary, valesMonth, empId);
+
+                if (isValeLimitExhausted(currentAvailable)) {
+                    info.innerHTML = "YA HAS UTILIZADO TODO TU CUPO DE VALES";
+                    info.className = "text-xs font-black mt-2 text-center h-4 text-red-500 animate-pulse";
+                    amountInput.disabled = true;
+                    amountInput.placeholder = "Agotado";
+                    amountInput.value = "";
+                    btn.disabled = true;
+                    btn.classList.remove("bg-blue-600", "hover:bg-blue-700");
+                    btn.classList.add("bg-slate-400", "cursor-not-allowed");
+                }
+            });
+
+            amountInput.addEventListener("input", (event) => {
+                const value = event.target.value.replace(/\D/g, "");
+                if (value) {
+                    event.target.value = new Intl.NumberFormat("es-PY").format(value);
+                }
+            });
+
+            document.getElementById("requestForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                if (btn.disabled) return;
+
+                const amount = Number(amountInput.value.replace(/\./g, ""));
+                const reason = document.getElementById("reasonInput").value;
+                const empId = select.value;
+                const selectedEmployee = employees.find((employee) => employee.id === empId);
+
+                if (!empId || amount <= 0) {
+                    uiToast('Verifique los datos.', 'warning', 'Datos incompletos');
+                    return;
+                }
+
+                if (!selectedEmployee || !selectedEmployee.fullName) {
+                    uiToast('No se pudo resolver el funcionario seleccionado.', 'error', 'Error');
+                    return;
+                }
+
+                if (amount > currentAvailable) {
+                    uiToast('El monto solicitado excede su limite disponible actual. Intente con un monto menor.', 'warning', 'Limite excedido');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerText = "ENVIANDO...";
+
+                try {
+                    await addDoc(collection(db, "vales"), {
+                        employeeId: empId,
+                        amount,
+                        requestedAmount: amount,
+                        reason,
+                        status: "Pendiente",
+                        employeeName: selectedEmployee.fullName || "",
+                        employeeNameUpper: selectedEmployee.fullName ? selectedEmployee.fullName.toUpperCase() : "",
+                        employeeBranch: selectedEmployee.branch || "",
+                        employeePosition: selectedEmployee.position || "",
+                        createdAt: serverTimestamp(),
+                        createdAtLocal: new Date().toISOString()
+                    });
+
+                    uiToast('Solicitud enviada correctamente. Espere la aprobacion de RRHH.', 'success', 'Enviado');
+                    setTimeout(() => window.location.reload(), 1400);
+                } catch (error) {
+                    console.error(error);
+                    uiToast('Error al enviar solicitud.', 'error', 'Error');
+                    btn.disabled = false;
+                    btn.innerText = "REINTENTAR";
+                }
+            });
+        </script>
+    </body>
 </html>

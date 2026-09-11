@@ -1,0 +1,18 @@
+# Normaliza finales de línea a LF en todo el repositorio.
+# Prettier usa `endOfLine: lf`, por lo que un clon con CRLF haría fallar `npm run format:check`.
+* text=auto eol=lf
+
+# Ficheros binarios: nunca normalizar.
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+*.pdf  binary
+*.zip  binary

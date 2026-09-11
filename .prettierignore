@@ -1,0 +1,8 @@
+dist/
+coverage/
+node_modules/
+package-lock.json
+public/static/
+public/logo.png
+public/favicon.ico
+*.min.js

@@ -1,8 +1,8 @@
 // public/js/auth-guard.js
 // Exige sesion y rol antes de inicializar una pagina.
 
-import { auth, onAuthStateChanged } from "./auth.js";
-import { db, collection, getDocs } from "./db.js";
+import { auth, onAuthStateChanged } from './auth.js';
+import { db, collection, getDocs } from './db.js';
 
 function showDenied(message) {
     document.body.innerHTML = `
@@ -16,12 +16,12 @@ function showDenied(message) {
         </div>`;
 }
 
-export function requireAuth({ roles = null, loginUrl = "index.html" } = {}) {
+export function requireAuth({ roles = null, loginUrl = 'index.html' } = {}) {
     return new Promise((resolve, reject) => {
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = loginUrl;
-                reject(new Error("No autenticado"));
+                reject(new Error('No autenticado'));
                 return;
             }
 
@@ -31,23 +31,21 @@ export function requireAuth({ roles = null, loginUrl = "index.html" } = {}) {
             }
 
             try {
-                const snapshot = await getDocs(collection(db, "users"));
-                const email = (user.email || "").toLowerCase();
-                const record = snapshot.docs
-                    .map((d) => d.data())
-                    .find((u) => (u.email || "").toLowerCase() === email);
+                const snapshot = await getDocs(collection(db, 'users'));
+                const email = (user.email || '').toLowerCase();
+                const record = snapshot.docs.map((d) => d.data()).find((u) => (u.email || '').toLowerCase() === email);
                 const role = record ? record.role : null;
 
                 if (!role || !roles.includes(role)) {
-                    showDenied("Tu usuario no tiene permisos para acceder a esta pagina. Contacta al administrador.");
-                    reject(new Error("Sin permisos"));
+                    showDenied('Tu usuario no tiene permisos para acceder a esta pagina. Contacta al administrador.');
+                    reject(new Error('Sin permisos'));
                     return;
                 }
 
                 resolve({ user, role });
             } catch (error) {
-                console.error("Error validando permisos:", error);
-                showDenied("No se pudo validar tu acceso. Intenta nuevamente.");
+                console.error('Error validando permisos:', error);
+                showDenied('No se pudo validar tu acceso. Intenta nuevamente.');
                 reject(error);
             }
         });

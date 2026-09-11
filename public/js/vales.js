@@ -1,9 +1,9 @@
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from "./db.js";
-import { db } from "./firebase-config.js";
-import { uiConfirm } from "./ui.js";
-import * as Export from "./export.js";
-import { printTicket } from "./print-service.js";
-import { getValeAvailable, getValeLimit, isValeLimitExhausted, formatGs } from "./vales-cupo.js";
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from './db.js';
+import { db } from './firebase-config.js';
+import { uiConfirm } from './ui.js';
+import * as Export from './export.js';
+import { printTicket } from './print-service.js';
+import { getValeAvailable, getValeLimit, isValeLimitExhausted, formatGs } from './vales-cupo.js';
 
 let latestEmployees = [];
 let latestVales = [];
@@ -19,7 +19,7 @@ function getEmployeeValeSnapshot(emp) {
     return {
         name: emp.fullName || emp.employeeName || '',
         branch: emp.branch || emp.employeeBranch || emp.sucursal || '',
-        position: emp.position || emp.employeePosition || emp.role || ''
+        position: emp.position || emp.employeePosition || emp.role || '',
     };
 }
 
@@ -31,10 +31,15 @@ function buildValeCode(employeeId, baseDate, prefix = 'VAL') {
         String(now.getDate()).padStart(2, '0'),
         String(now.getHours()).padStart(2, '0'),
         String(now.getMinutes()).padStart(2, '0'),
-        String(now.getSeconds()).padStart(2, '0')
+        String(now.getSeconds()).padStart(2, '0'),
     ].join('');
-    const datePart = String(baseDate || now.toISOString().split('T')[0]).replace(/\D/g, '').slice(0, 8) || localStamp.slice(0, 8);
-    const employeePart = String(employeeId || 'SINEMP').slice(-4).toUpperCase();
+    const datePart =
+        String(baseDate || now.toISOString().split('T')[0])
+            .replace(/\D/g, '')
+            .slice(0, 8) || localStamp.slice(0, 8);
+    const employeePart = String(employeeId || 'SINEMP')
+        .slice(-4)
+        .toUpperCase();
     return `${prefix}-${datePart}-${localStamp.slice(8, 14)}-${employeePart}`;
 }
 
@@ -49,7 +54,7 @@ function buildValeAuditFields(emp, valeDate, sourceModule, paymentCode) {
         sourceModule,
         paymentCode,
         approvedAt: serverTimestamp(),
-        approvedAtLocal: new Date().toISOString()
+        approvedAtLocal: new Date().toISOString(),
     };
 }
 
@@ -64,7 +69,7 @@ function formatValeDate(value) {
 export function getViewCreateVale(employees, vales = []) {
     latestEmployees = employees;
     latestValesCreate = vales;
-    const options = employees.map(e => `<option value="${e.id}">${e.fullName}</option>`).join('');
+    const options = employees.map((e) => `<option value="${e.id}">${e.fullName}</option>`).join('');
     return `
         <div class="max-w-2xl mx-auto bg-white p-10 rounded-[40px] shadow-xl border border-amber-50 fade-in">
             <h3 class="text-2xl font-black text-slate-800 mb-8">Emitir Nuevo Vale</h3>
@@ -112,8 +117,11 @@ export function setupCreateValeLogic(toastCb) {
     const cupoInfo = document.getElementById('valeCupoInfo');
     if (empSelect && cupoInfo) {
         empSelect.addEventListener('change', () => {
-            const emp = latestEmployees.find(e => e.id === empSelect.value);
-            if (!emp) { cupoInfo.textContent = ''; return; }
+            const emp = latestEmployees.find((e) => e.id === empSelect.value);
+            if (!emp) {
+                cupoInfo.textContent = '';
+                return;
+            }
             const limit = getValeLimit(emp.salary);
             const available = getValeAvailable(emp.salary, latestValesCreate, emp.id);
             const exhausted = isValeLimitExhausted(available);
@@ -132,22 +140,25 @@ export function setupCreateValeLogic(toastCb) {
         const empId = document.getElementById('valeEmpSelect').value;
         const amount = Number((amountInput?.value || '').replace(/\./g, ''));
         const reason = document.getElementById('valeReason').value.trim();
-        const selectedEmployee = latestEmployees.find(emp => emp.id === empId);
+        const selectedEmployee = latestEmployees.find((emp) => emp.id === empId);
         const snapshot = getEmployeeValeSnapshot(selectedEmployee);
         const valeDate = new Date().toISOString().split('T')[0];
         const paymentCode = buildValeCode(empId, valeDate, 'VAL');
 
-        if (!empId || !amount) return toastCb("Error", "Complete los datos");
-        if (!snapshot.name) return toastCb("Error", "No se pudo resolver el funcionario del vale.");
+        if (!empId || !amount) return toastCb('Error', 'Complete los datos');
+        if (!snapshot.name) return toastCb('Error', 'No se pudo resolver el funcionario del vale.');
 
         const available = selectedEmployee ? getValeAvailable(selectedEmployee.salary, latestValesCreate, empId) : 0;
         if (selectedEmployee && amount > available) {
-            toastCb("Aviso", `El monto supera el cupo disponible del mes (Gs. ${formatGs(available)}). Se registrara igual.`);
+            toastCb(
+                'Aviso',
+                `El monto supera el cupo disponible del mes (Gs. ${formatGs(available)}). Se registrara igual.`
+            );
         }
 
         try {
             const isRRHH = currentUserRole === 'RRHH';
-            await addDoc(collection(db, "vales"), {
+            await addDoc(collection(db, 'vales'), {
                 employeeId: empId,
                 amount,
                 requestedAmount: amount,
@@ -157,10 +168,10 @@ export function setupCreateValeLogic(toastCb) {
                 estadoAprobacion: isRRHH ? 'PENDIENTE_RENDICION' : 'APROBADO',
                 creadoPorRol: currentUserRole,
                 createdAt: serverTimestamp(),
-                ...buildValeAuditFields(selectedEmployee, valeDate, 'VALE_DIRECTO', paymentCode)
+                ...buildValeAuditFields(selectedEmployee, valeDate, 'VALE_DIRECTO', paymentCode),
             });
 
-            toastCb("Exito", "Vale registrado correctamente");
+            toastCb('Exito', 'Vale registrado correctamente');
             form.reset();
 
             printTicket({
@@ -171,11 +182,11 @@ export function setupCreateValeLogic(toastCb) {
                 type: 'VALE / ADELANTO',
                 detail: reason || 'Adelanto de Salario',
                 amount,
-                doubleTicket: isRRHH
-            }).catch(err => console.error("Error al imprimir vale:", err));
+                doubleTicket: isRRHH,
+            }).catch((err) => console.error('Error al imprimir vale:', err));
         } catch (error) {
             console.error(error);
-            toastCb("Error", "No se pudo registrar");
+            toastCb('Error', 'No se pudo registrar');
         }
     });
 }
@@ -188,7 +199,7 @@ export function getViewListVales(vales, employees) {
     latestEmployees = employees;
 
     const grouped = {};
-    vales.forEach(v => {
+    vales.forEach((v) => {
         if (!grouped[v.employeeId]) grouped[v.employeeId] = [];
         grouped[v.employeeId].push(v);
     });
@@ -204,10 +215,10 @@ export function getViewListVales(vales, employees) {
         return '<div class="p-20 text-center text-slate-300">No hay historial de vales.</div>';
     }
 
-    Object.keys(grouped).forEach(empId => {
-        const emp = employees.find(e => e.id === empId);
-        const snapshotName = grouped[empId].find(item => item.employeeName)?.employeeName || '';
-        const name = emp ? emp.fullName : (snapshotName || 'Desconocido');
+    Object.keys(grouped).forEach((empId) => {
+        const emp = employees.find((e) => e.id === empId);
+        const snapshotName = grouped[empId].find((item) => item.employeeName)?.employeeName || '';
+        const name = emp ? emp.fullName : snapshotName || 'Desconocido';
         const lista = grouped[empId].sort((a, b) => {
             const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
             const db = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
@@ -232,18 +243,22 @@ export function getViewListVales(vales, employees) {
                         <button onclick="document.getElementById('vhist-${empId}').classList.add('hidden')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"><i class="ph-bold ph-x"></i></button>
                     </div>
                     <div class="space-y-3">
-                        ${lista.map(v => {
-                            const date = formatValeDate(v.createdAt);
-                            const requestedAmount = Number(v.requestedAmount || v.amount || 0);
-                            const approvedAmount = Number(v.approvedAmount || v.amount || 0);
-                            const wasAdjusted = requestedAmount > 0 && approvedAmount > 0 && requestedAmount !== approvedAmount;
-                            let statusClass = 'bg-slate-100 text-slate-500';
-                            if (v.status === 'Pendiente') statusClass = 'bg-amber-100 text-amber-600';
-                            if (v.status === 'Aprobado') statusClass = 'bg-blue-100 text-blue-600';
-                            if (v.status === 'Cobrado') statusClass = 'bg-emerald-100 text-emerald-600 line-through opacity-60';
-                            if (v.status === 'Rechazado') statusClass = 'bg-red-100 text-red-600 line-through opacity-60';
+                        ${lista
+                            .map((v) => {
+                                const date = formatValeDate(v.createdAt);
+                                const requestedAmount = Number(v.requestedAmount || v.amount || 0);
+                                const approvedAmount = Number(v.approvedAmount || v.amount || 0);
+                                const wasAdjusted =
+                                    requestedAmount > 0 && approvedAmount > 0 && requestedAmount !== approvedAmount;
+                                let statusClass = 'bg-slate-100 text-slate-500';
+                                if (v.status === 'Pendiente') statusClass = 'bg-amber-100 text-amber-600';
+                                if (v.status === 'Aprobado') statusClass = 'bg-blue-100 text-blue-600';
+                                if (v.status === 'Cobrado')
+                                    statusClass = 'bg-emerald-100 text-emerald-600 line-through opacity-60';
+                                if (v.status === 'Rechazado')
+                                    statusClass = 'bg-red-100 text-red-600 line-through opacity-60';
 
-                            return `
+                                return `
                                 <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
                                     <div>
                                         <p class="font-black text-slate-700">Gs. ${approvedAmount.toLocaleString()}</p>
@@ -256,7 +271,8 @@ export function getViewListVales(vales, employees) {
                                         <span class="text-[9px] px-2 py-0.5 rounded font-black uppercase ${statusClass}">${v.status}</span>
                                     </div>
                                 </div>`;
-                        }).join('')}
+                            })
+                            .join('')}
                     </div>
                 </div>
             </div>`;
@@ -272,8 +288,8 @@ export function getViewApproveVales(vales, employees) {
     latestVales = vales;
     latestEmployees = employees;
 
-    const pendientes = vales.filter(v => v.status === 'Pendiente');
-    
+    const pendientes = vales.filter((v) => v.status === 'Pendiente');
+
     if (pendientes.length === 0) {
         return `
             <div class="flex flex-col items-center justify-center h-full py-20 opacity-50 fade-in">
@@ -283,20 +299,25 @@ export function getViewApproveVales(vales, employees) {
     }
 
     let html = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 fade-in pb-20">`;
-    
-    pendientes.forEach(v => {
-        const emp = employees.find(e => e.id === v.employeeId);
-        const snapshot = getEmployeeValeSnapshot(emp || {
-            fullName: v.employeeName,
-            branch: v.employeeBranch,
-            position: v.employeePosition
-        });
+
+    pendientes.forEach((v) => {
+        const emp = employees.find((e) => e.id === v.employeeId);
+        const snapshot = getEmployeeValeSnapshot(
+            emp || {
+                fullName: v.employeeName,
+                branch: v.employeeBranch,
+                position: v.employeePosition,
+            }
+        );
         let fechaHora = 'Reciente';
         if (v.createdAt?.toDate) {
             const d = v.createdAt.toDate();
-            fechaHora = d.toLocaleDateString('es-PY') + ' ' + d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+            fechaHora =
+                d.toLocaleDateString('es-PY') +
+                ' ' +
+                d.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
         }
-        
+
         html += `
             <div class="bg-white p-6 rounded-[30px] shadow-lg border-2 border-amber-100 relative overflow-hidden group hover:-translate-y-1 transition-all">
                 <div class="absolute top-0 right-0 p-3 opacity-10"><i class="ph-duotone ph-ticket text-8xl text-amber-500"></i></div>
@@ -355,7 +376,7 @@ export function getViewApproveVales(vales, employees) {
 // ==========================================
 export function initValesGlobalListeners(toastCb) {
     window.exportValesCsv = () => {
-        const empName = (id) => latestEmployees.find(e => e.id === id)?.fullName || id;
+        const empName = (id) => latestEmployees.find((e) => e.id === id)?.fullName || id;
         const columns = [
             { label: 'Funcionario', value: (v) => v.employeeName || empName(v.employeeId) },
             { label: 'Fecha', value: (v) => formatValeDate(v.createdAt) },
@@ -365,7 +386,11 @@ export function initValesGlobalListeners(toastCb) {
             { label: 'Motivo', value: (v) => v.reason || '' },
             { label: 'Estado', value: (v) => v.status || '' },
         ];
-        Export.downloadCsv(`vales-${Export.dateStamp()}`, columns, latestVales.filter(v => !v.deleted));
+        Export.downloadCsv(
+            `vales-${Export.dateStamp()}`,
+            columns,
+            latestVales.filter((v) => !v.deleted)
+        );
         toastCb('Exportado', 'CSV de vales generado.');
     };
     window.formatValeApprovalAmount = (input) => {
@@ -375,45 +400,55 @@ export function initValesGlobalListeners(toastCb) {
 
     window.approveVale = async (id) => {
         try {
-            const vale = latestVales.find(item => item.id === id);
+            const vale = latestVales.find((item) => item.id === id);
             if (!vale) {
-                toastCb("Error", "No se encontro el vale seleccionado.");
+                toastCb('Error', 'No se encontro el vale seleccionado.');
                 return;
             }
 
             const amountInput = document.getElementById(`approveValeAmount-${id}`);
-            const approvedAmount = Number(String(amountInput?.value || '').replace(/\./g, '').replace(/\D/g, ''));
+            const approvedAmount = Number(
+                String(amountInput?.value || '')
+                    .replace(/\./g, '')
+                    .replace(/\D/g, '')
+            );
             const requestedAmount = Number(vale.requestedAmount || vale.amount || 0);
 
             if (!approvedAmount || approvedAmount <= 0) {
-                toastCb("Error", "Ingrese un monto valido para aprobar.");
+                toastCb('Error', 'Ingrese un monto valido para aprobar.');
                 return;
             }
 
-            const confirmado = await uiConfirm({ title: 'Aprobar vale', message: `¿Aprobar e imprimir ticket por Gs. ${approvedAmount.toLocaleString('es-PY')}?`, tone: 'info', confirmText: 'Aprobar' });
+            const confirmado = await uiConfirm({
+                title: 'Aprobar vale',
+                message: `¿Aprobar e imprimir ticket por Gs. ${approvedAmount.toLocaleString('es-PY')}?`,
+                tone: 'info',
+                confirmText: 'Aprobar',
+            });
             if (!confirmado) return;
 
-            const employee = latestEmployees.find(emp => emp.id === vale.employeeId);
+            const employee = latestEmployees.find((emp) => emp.id === vale.employeeId);
             const snapshot = getEmployeeValeSnapshot(employee);
             if (!snapshot.name) {
-                toastCb("Error", "No se pudo resolver el funcionario del vale.");
+                toastCb('Error', 'No se pudo resolver el funcionario del vale.');
                 return;
             }
 
             const valeDate = new Date().toISOString().split('T')[0];
             const paymentCode = buildValeCode(vale.employeeId, valeDate, 'VAL');
 
-            await updateDoc(doc(db, "vales", id), {
+            await updateDoc(doc(db, 'vales', id), {
                 status: 'Aprobado',
                 amount: approvedAmount,
                 requestedAmount,
                 approvedAmount,
-                ...buildValeAuditFields(employee, valeDate, 'APROBACION_VALE', paymentCode)
+                ...buildValeAuditFields(employee, valeDate, 'APROBACION_VALE', paymentCode),
             });
 
-            const detail = approvedAmount !== requestedAmount
-                ? `${vale.reason || 'Adelanto de Salario'} | Ajustado de Gs. ${requestedAmount.toLocaleString('es-PY')} a Gs. ${approvedAmount.toLocaleString('es-PY')}`
-                : (vale.reason || 'Adelanto de Salario');
+            const detail =
+                approvedAmount !== requestedAmount
+                    ? `${vale.reason || 'Adelanto de Salario'} | Ajustado de Gs. ${requestedAmount.toLocaleString('es-PY')} a Gs. ${approvedAmount.toLocaleString('es-PY')}`
+                    : vale.reason || 'Adelanto de Salario';
 
             await printTicket({
                 sucursal: snapshot.branch || 'MATRIZ',
@@ -422,25 +457,30 @@ export function initValesGlobalListeners(toastCb) {
                 paymentCode,
                 type: 'VALE / ADELANTO',
                 detail,
-                amount: approvedAmount
+                amount: approvedAmount,
             });
 
-            toastCb("Aprobado", "Vale aprobado y ticket impreso.");
+            toastCb('Aprobado', 'Vale aprobado y ticket impreso.');
         } catch (e) {
             console.error(e);
-            toastCb("Error", "No se pudo actualizar.");
+            toastCb('Error', 'No se pudo actualizar.');
         }
     };
 
     window.rejectVale = async (id) => {
-        const confirmado = await uiConfirm({ title: 'Rechazar vale', message: '¿Rechazar solicitud?', tone: 'danger', confirmText: 'Rechazar' });
+        const confirmado = await uiConfirm({
+            title: 'Rechazar vale',
+            message: '¿Rechazar solicitud?',
+            tone: 'danger',
+            confirmText: 'Rechazar',
+        });
         if (!confirmado) return;
         try {
-            await updateDoc(doc(db, "vales", id), { status: 'Rechazado' });
-            toastCb("Rechazado", "La solicitud ha sido rechazada.");
+            await updateDoc(doc(db, 'vales', id), { status: 'Rechazado' });
+            toastCb('Rechazado', 'La solicitud ha sido rechazada.');
         } catch (e) {
             console.error(e);
-            toastCb("Error", "No se pudo actualizar.");
+            toastCb('Error', 'No se pudo actualizar.');
         }
     };
 }

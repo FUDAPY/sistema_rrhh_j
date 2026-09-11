@@ -1,13 +1,17 @@
-import { auth } from "./firebase-config.js";
+import { auth } from './firebase-config.js';
 
 export function printTicket(data) {
-    const user = auth.currentUser ? auth.currentUser.email : "Sistema";
+    const user = auth.currentUser ? auth.currentUser.email : 'Sistema';
     const dateObj = new Date();
     const dateStr = dateObj.toLocaleDateString('es-PY');
     const timeStr = dateObj.toLocaleTimeString('es-PY');
-    const paymentCode = typeof data.paymentCode === 'string' && data.paymentCode.trim() ? data.paymentCode.trim() : 'SIN-CODIGO';
-    const employeeName = [data.employeeName, data.fullName, data.name].find((value) => typeof value === 'string' && value.trim()) || '';
-    const employeePosition = [data.employeePosition, data.position, data.role].find((value) => typeof value === 'string' && value.trim()) || '';
+    const paymentCode =
+        typeof data.paymentCode === 'string' && data.paymentCode.trim() ? data.paymentCode.trim() : 'SIN-CODIGO';
+    const employeeName =
+        [data.employeeName, data.fullName, data.name].find((value) => typeof value === 'string' && value.trim()) || '';
+    const employeePosition =
+        [data.employeePosition, data.position, data.role].find((value) => typeof value === 'string' && value.trim()) ||
+        '';
     const amount = Number(data.amount) || 0;
     const ejemplarAdmin = data.doubleTicket ? '<div class="ejemplar">EJEMPLAR ADMINISTRACION</div>' : '';
 
@@ -85,7 +89,9 @@ export function printTicket(data) {
                 Documento de uso interno
             </div>
 
-            ${data.doubleTicket ? `
+            ${
+                data.doubleTicket
+                    ? `
                 <div style="page-break-before: always; margin-top: 20px; border-top: 2px dashed #000; padding-top: 15px;">
                     <div class="ejemplar">EJEMPLAR FUNCIONARIO</div>
                     <div class="text-center">
@@ -120,7 +126,9 @@ export function printTicket(data) {
                         Ejemplar para el Funcionario - Guarde este comprobante
                     </div>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
         </body>
         </html>
     `;
@@ -148,33 +156,37 @@ export function printTicket(data) {
             doc.close();
 
             const images = Array.from(doc.images || []);
-            const waitForAssets = Promise.all(images.map((img) => {
-                if (img.complete) return Promise.resolve();
-                return new Promise((assetReady) => {
-                    img.onload = assetReady;
-                    img.onerror = assetReady;
-                });
-            }));
+            const waitForAssets = Promise.all(
+                images.map((img) => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((assetReady) => {
+                        img.onload = assetReady;
+                        img.onerror = assetReady;
+                    });
+                })
+            );
 
-            waitForAssets.then(() => {
-                setTimeout(() => {
-                    try {
-                        printWindow.focus();
-                        printWindow.print();
-                        setTimeout(cleanup, 2000);
-                    } catch (error) {
-                        console.error("Error de impresion:", error);
-                        cleanup();
-                    }
-                }, 100);
-                resolve();
-            }).catch((error) => {
-                console.error("Error cargando recursos de impresion:", error);
-                cleanup();
-                resolve();
-            });
+            waitForAssets
+                .then(() => {
+                    setTimeout(() => {
+                        try {
+                            printWindow.focus();
+                            printWindow.print();
+                            setTimeout(cleanup, 2000);
+                        } catch (error) {
+                            console.error('Error de impresion:', error);
+                            cleanup();
+                        }
+                    }, 100);
+                    resolve();
+                })
+                .catch((error) => {
+                    console.error('Error cargando recursos de impresion:', error);
+                    cleanup();
+                    resolve();
+                });
         } catch (error) {
-            console.error("Error preparando impresion:", error);
+            console.error('Error preparando impresion:', error);
             cleanup();
             resolve();
         }

@@ -1,7 +1,7 @@
 // public/js/proveedores.js
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from "./db.js";
-import { db } from "./firebase-config.js";
-import { uiConfirm } from "./ui.js";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from './db.js';
+import { db } from './firebase-config.js';
+import { uiConfirm } from './ui.js';
 
 let _toast = null;
 
@@ -13,12 +13,19 @@ export function initProveedoresListeners(toastCb) {
 
     // Función para borrar proveedor
     window.deleteProveedor = async (id, name) => {
-        const confirmado = await uiConfirm({ title: 'Eliminar proveedor', message: `¿Estás seguro de eliminar a ${name} de la lista de proveedores?`, tone: 'danger', confirmText: 'Eliminar' });
+        const confirmado = await uiConfirm({
+            title: 'Eliminar proveedor',
+            message: `¿Estás seguro de eliminar a ${name} de la lista de proveedores?`,
+            tone: 'danger',
+            confirmText: 'Eliminar',
+        });
         if (!confirmado) return;
         try {
-            await deleteDoc(doc(db, "proveedores", id));
-            if(_toast) _toast("Eliminado", "Proveedor borrado correctamente.");
-        } catch(e) { console.error(e); }
+            await deleteDoc(doc(db, 'proveedores', id));
+            if (_toast) _toast('Eliminado', 'Proveedor borrado correctamente.');
+        } catch (e) {
+            console.error(e);
+        }
     };
 }
 
@@ -27,11 +34,11 @@ export function initProveedoresListeners(toastCb) {
 // ==========================================
 export function setupCreateProveedorLogic(toastCb) {
     const form = document.getElementById('provForm');
-    if(!form) return;
+    if (!form) return;
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         // Obtenemos los datos del formulario
         const nombre = document.getElementById('prov-name').value;
         const ruc = document.getElementById('prov-ruc').value;
@@ -39,28 +46,30 @@ export function setupCreateProveedorLogic(toastCb) {
         const categoria = document.getElementById('prov-cat').value;
         const direccion = document.getElementById('prov-address').value;
 
-        if(!nombre || !ruc) return toastCb("Error", "El nombre y RUC son obligatorios");
+        if (!nombre || !ruc) return toastCb('Error', 'El nombre y RUC son obligatorios');
 
         const btn = form.querySelector('button[type="submit"]');
         const originalText = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
         try {
-            await addDoc(collection(db, "proveedores"), {
+            await addDoc(collection(db, 'proveedores'), {
                 name: nombre,
                 ruc: ruc,
                 phone: telefono,
                 category: categoria,
                 address: direccion,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
             });
-            toastCb("Éxito", "Proveedor registrado correctamente");
+            toastCb('Éxito', 'Proveedor registrado correctamente');
             form.reset();
         } catch (error) {
             console.error(error);
-            toastCb("Error", "No se pudo registrar el proveedor");
+            toastCb('Error', 'No se pudo registrar el proveedor');
         } finally {
-            btn.disabled = false; btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     });
 }
@@ -127,12 +136,13 @@ export function getViewCreateProveedor() {
 // 4. VISTA: LISTADO DE PROVEEDORES
 // ==========================================
 export function getViewListProveedores(proveedores) {
-    if(!proveedores || !proveedores.length) return '<div class="flex flex-col items-center justify-center py-40 opacity-40"><i class="ph-duotone ph-truck text-6xl mb-4"></i><p class="font-black text-xl">NO HAY PROVEEDORES</p></div>';
+    if (!proveedores || !proveedores.length)
+        return '<div class="flex flex-col items-center justify-center py-40 opacity-40"><i class="ph-duotone ph-truck text-6xl mb-4"></i><p class="font-black text-xl">NO HAY PROVEEDORES</p></div>';
 
     let html = `
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 fade-in pb-20">`;
 
-    proveedores.forEach(p => {
+    proveedores.forEach((p) => {
         html += `
             <div class="bg-white p-6 rounded-[30px] shadow-lg border border-slate-100 group hover:shadow-2xl transition-all relative">
                 
@@ -158,7 +168,7 @@ export function getViewListProveedores(proveedores) {
                 </div>
 
                 <div class="mt-6 flex gap-3">
-                    <a href="https://wa.me/${p.phone ? p.phone.replace(/\D/g,'') : ''}" target="_blank" class="flex-1 bg-green-500 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-green-600 transition-colors">
+                    <a href="https://wa.me/${p.phone ? p.phone.replace(/\D/g, '') : ''}" target="_blank" class="flex-1 bg-green-500 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-green-600 transition-colors">
                         <i class="ph-bold ph-whatsapp-logo text-lg"></i> WHATSAPP
                     </a>
                     <button onclick="deleteProveedor('${p.id}', '${p.name}')" class="bg-red-50 text-red-500 p-2.5 rounded-xl hover:bg-red-500 hover:text-white transition-colors">
