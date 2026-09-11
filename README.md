@@ -229,9 +229,9 @@ tokens del nombre` (los dos últimos solo cuando el resultado es inequívoco). L
     - La hora de entrada esperada sale del horario de la **sucursal** (`sucursales.entrada`), con override
       general en el modal. La ventana de vigencia (`startDate`/`endDate`) y los **días laborables**
       configurables evitan ausencias falsas; los inactivos sin marcaciones no se incluyen.
-4. **Reporte A4.** Vista de impresión A4 con logo, dirección y periodo, y por cada funcionario:
-   **NOMBRE, C.I., sucursal, tardanzas/minutos, ausencias, días descontados y MONTO**, más una fila de
-   **RAZÓN** con el detalle exacto:
+4. **Reporte A4 (3 columnas).** Vista de impresión A4 con logo, dirección, periodo y responsable, y la
+   tabla con **NOMBRE DEL FUNCIONARIO** (con su C.I. debajo), **RAZÓN (FECHAS Y HORARIOS)** y **MONTO A
+   DESCONTAR**:
    `RAZÓN: (FECHAS AUSENTES 04/08, 11/08; HORARIOS TARDIOS EN FECHAS 02/08 08:35 (35 min, Gs. 30.000))`.
    Totales generales, firmas y botón **Imprimir / Guardar como PDF**.
 5. **Guardar descuentos.** Crea un registro por funcionario en `descuentos` con

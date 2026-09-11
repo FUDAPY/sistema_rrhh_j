@@ -885,6 +885,12 @@ function estiloA4() {
     td.r { text-align: right; font-weight: bold; }
     tfoot td { background: #f4f4f4; font-weight: bold; }
     tr.razon td { background: #fafafa; font-size: 8px; text-align: left; border-top: none; color: #333; }
+    .nombre { font-weight: bold; text-transform: uppercase; }
+    .nombre .ci { display: block; font-weight: normal; text-transform: none; font-size: 7.5px; color: #555; }
+    .razon-cell { font-size: 8px; color: #333; text-align: left; }
+    th.col-nombre { width: 26%; }
+    th.col-razon { width: 52%; }
+    th.col-monto { width: 22%; }
     .resumen { display: flex; gap: 8px; margin: 10px 0; }
     .caja { flex: 1; border: 1px solid #999; padding: 6px; }
     .caja span { display: block; font-size: 8px; text-transform: uppercase; color: #555; }
@@ -925,20 +931,13 @@ function construirReporteA4() {
     const cuerpo =
         filas
             .map(
-                (fila, indice) => `<tr>
-                <td class="c">${indice + 1}</td>
-                <td>${escapar(fila.employeeName)}</td>
-                <td class="c">${escapar(fila.cedula || '-')}</td>
-                <td>${escapar(fila.branch || '-')}</td>
-                <td class="c">${fila.tardanzas || '-'}</td>
-                <td class="c">${fila.tardanzas ? minutosATexto(fila.minutosRetraso) : '-'}</td>
-                <td class="c">${fila.ausencias || '-'}</td>
-                <td class="c">${fila.diasDescontados || '-'}</td>
+                (fila) => `<tr>
+                <td class="nombre">${escapar(fila.employeeName)}<span class="ci">C.I. ${escapar(fila.cedula || '-')}</span></td>
+                <td class="razon-cell">${escapar(razonDescuento(fila))}</td>
                 <td class="r">${formatearGs(fila.montoTotal)}</td>
-            </tr>
-            <tr class="razon"><td colspan="9">${escapar(razonDescuento(fila))}</td></tr>`
+            </tr>`
             )
-            .join('') || '<tr><td colspan="9" class="c">Sin tardanzas ni ausencias en el periodo evaluado.</td></tr>';
+            .join('') || '<tr><td colspan="3" class="c">Sin tardanzas ni ausencias en el periodo evaluado.</td></tr>';
 
     const metadatos = `Periodo evaluado: <strong>${periodo}</strong> · Dias laborables: ${resultado.dias.length} · Hora de entrada: ${resultado.horaGeneral} · Reglas: 29 min de gracia · ${formatearGs(REGLAS_PLANILLA.montoPorBloque)} por cada ${REGLAS_PLANILLA.bloqueMinutos} min · mas de 2 h y ausencias: 1 dia (salario / ${REGLAS_PLANILLA.diasBaseMes})`;
 
@@ -948,24 +947,22 @@ function construirReporteA4() {
 <body>
     ${cabeceraA4(periodo, new Date(), operador)}
 
-    <h2>Planilla de asistencia · Descuentos por tardanzas y ausencias</h2>
+    <h2>Descuentos por tardanzas y ausencias</h2>
     <p class="meta">${metadatos}</p>
 
     <table>
         <thead>
             <tr>
-                <th>#</th><th>Funcionario</th><th>C.I.</th><th>Sucursal</th>
-                <th>Tardanzas</th><th>Min. retraso</th><th>Ausencias</th><th>Dias desc.</th><th>Monto (Gs.)</th>
+                <th class="col-nombre">Nombre del funcionario</th>
+                <th class="col-razon">Razon (fechas y horarios)</th>
+                <th class="col-monto">Monto a descontar</th>
             </tr>
         </thead>
         <tbody>${cuerpo}</tbody>
         <tfoot>
             <tr>
-                <td colspan="4">TOTALES (${totales.funcionarios} funcionario/s)</td>
-                <td class="c">${totales.tardanzas}</td>
-                <td class="c">${minutosATexto(minutosTotales)}</td>
-                <td class="c">${totales.ausencias}</td>
-                <td class="c">${totales.diasDescontados}</td>
+                <td>TOTAL: ${totales.funcionarios} funcionario/s</td>
+                <td class="razon-cell">${totales.tardanzas} tardanza(s) · ${minutosATexto(minutosTotales)} · ${totales.ausencias} ausencia(s)</td>
                 <td class="r">${formatearGs(totales.montoTotal)}</td>
             </tr>
         </tfoot>
@@ -1053,7 +1050,7 @@ window.guardarDescuentosPlanilla = async () => {
                 tardanzasGraves: fila.tardanzasGraves,
                 ausencias: fila.ausencias,
                 diasDescontados: fila.diasDescontados,
-                detalle: resumenDescuento(fila),
+                detalle: razonDescuento(fila),
                 status: 'Aplicado',
                 createdAt: serverTimestamp(),
             });
