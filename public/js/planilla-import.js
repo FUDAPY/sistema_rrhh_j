@@ -13,6 +13,7 @@ import {
     detectarColumnas,
     diasEsperados,
     evaluarAsistencia,
+    etiquetaDiaLibre,
     formatearGs,
     minutosATexto,
     parseCsv,
@@ -100,6 +101,20 @@ const claveSucursal = (valor) =>
     String(valor ?? '')
         .trim()
         .toUpperCase();
+
+// Dia libre por defecto de cada sucursal (se usa si la ficha del funcionario no
+// define uno propio). En la sucursal con libre rotativo se excepciona ficha por ficha.
+function diasLibresDeSucursales() {
+    const mapa = new Map();
+
+    for (const sucursal of estado.sucursales) {
+        const valor = sucursal.diaLibre;
+        if (valor === null || valor === undefined || valor === '') continue;
+        mapa.set(claveSucursal(sucursal.name), Number(valor));
+    }
+
+    return mapa;
+}
 
 // Hora de entrada esperada por funcionario segun el horario de su sucursal.
 function horasDeSucursales() {
@@ -646,6 +661,7 @@ window.procesarPlanilla = () => {
         dias,
         horaEntradaPorFuncionario: horasDeSucursales(),
         horaEntradaDefecto: horaGeneral,
+        diaLibrePorSucursal: diasLibresDeSucursales(),
     });
 
     estado.resultado = { ...evaluacion, anio, mes, dias, diasSemana, horaGeneral };
@@ -741,7 +757,7 @@ function tablaResultado(filas, totales) {
                 </td>
                 <td class="pt-3 px-3">
                     <p class="font-black text-slate-700">${escapar(fila.employeeName)}</p>
-                    <p class="text-[10px] font-bold text-slate-400">${escapar(fila.branch || '-')}${fila.biometricId ? ` · ID ${escapar(fila.biometricId)}` : ''}</p>
+                    <p class="text-[10px] font-bold text-slate-400">${escapar(fila.branch || '-')}${fila.biometricId ? ` · ID ${escapar(fila.biometricId)}` : ''}${fila.diaLibre === null || fila.diaLibre === undefined ? '' : ` · Libre: ${escapar(etiquetaDiaLibre(fila.diaLibre))}`}</p>
                     ${advertencias}
                     ${reimportado ? '<p class="text-[10px] font-black text-rose-600">YA IMPORTADO EN ESTE PERIODO</p>' : ''}
                 </td>

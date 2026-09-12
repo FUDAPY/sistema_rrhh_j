@@ -33,6 +33,22 @@ export const MODO_TARDANZA = {
     DIA_COMPLETO: 'DIA COMPLETO',
 };
 
+// Dias de la semana para el "dia libre" del funcionario (0 = domingo, como Date).
+export const DIAS_LIBRES = [
+    { valor: 1, etiqueta: 'Lunes' },
+    { valor: 2, etiqueta: 'Martes' },
+    { valor: 3, etiqueta: 'Miercoles' },
+    { valor: 4, etiqueta: 'Jueves' },
+    { valor: 5, etiqueta: 'Viernes' },
+    { valor: 6, etiqueta: 'Sabado' },
+    { valor: 0, etiqueta: 'Domingo' },
+];
+
+export function etiquetaDiaLibre(valor) {
+    const dia = DIAS_LIBRES.find((item) => item.valor === Number(valor));
+    return dia ? dia.etiqueta : '';
+}
+
 const pad2 = (valor) => String(valor).padStart(2, '0');
 
 // ---------------------------- Normalizacion ----------------------------
@@ -179,6 +195,53 @@ export function parseCsv(texto) {
     filas.push(campos);
 
     return filas.filter((fila) => fila.some((campo) => String(campo).trim() !== ''));
+}
+
+// Dia de la semana (0 = domingo, como Date) de una fecha ISO. Se evalua al mediodia
+// para que el cambio de horario o la zona no muevan el dia.
+export function diaSemanaDe(fecha) {
+    const date = new Date(`${fecha}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date.getDay();
+}
+
+// True si la fecha cae en el dia libre semanal del funcionario.
+export function esDiaLibre(fecha, diaLibre) {
+    if (diaLibre === null || diaLibre === undefined || diaLibre === '') return false;
+    const dia = Number(diaLibre);
+    if (Number.isNaN(dia)) return false;
+    return diaSemanaDe(fecha) === dia;
+}
+
+// Dia libre efectivo: primero el de la ficha del funcionario y, si no tiene, el
+// configurado por defecto en su sucursal (asi las sucursales que solo libran domingo
+// se configuran una vez, y en la de libre rotativo se excepciona ficha por ficha).
+export function resolverDiaLibre(empleado, diaLibrePorSucursal = null) {
+    const propio = empleado?.diaLibre;
+    if (propio !== null && propio !== undefined && propio !== '') return Number(propio);
+
+    if (diaLibrePorSucursal) {
+        const sucursal = String(empleado?.branch || '').trim();
+        const clave = sucursal.toUpperCase();
+        let heredado;
+
+        if (diaLibrePorSucursal instanceof Map) {
+            heredado = diaLibrePorSucursal.get(clave) ?? diaLibrePorSucursal.get(sucursal);
+        } else {
+            heredado = diaLibrePorSucursal[clave];
+            if (heredado === undefined) {
+                // Tolerante a mayusculas/minusculas y espacios: una clave mal escrita
+                // dejaria el dia libre sin aplicar y generaria ausencias inexistentes.
+                const encontrada = Object.keys(diaLibrePorSucursal).find(
+                    (nombre) => String(nombre).trim().toUpperCase() === clave
+                );
+                heredado = encontrada === undefined ? undefined : diaLibrePorSucursal[encontrada];
+            }
+        }
+
+        if (heredado !== null && heredado !== undefined && heredado !== '') return Number(heredado);
+    }
+
+    return null;
 }
 
 // Dias del mes que deben trabajarse segun los dias de la semana elegidos.
@@ -377,6 +440,7 @@ function crearFila(empleado) {
         montoTotal: 0,
         detalle: [],
         fechasAusentes: [],
+        diaLibre: empleado.diaLibre ?? null,
         advertencias: [],
         incluido: true,
     };
@@ -397,6 +461,7 @@ export function evaluarAsistencia({
     dias = [],
     horaEntradaPorFuncionario = null,
     horaEntradaDefecto = REGLAS_PLANILLA.horaEntradaDefecto,
+    diaLibrePorSucursal = null,
     reglas = {},
 } = {}) {
     const cfg = { ...REGLAS_PLANILLA, ...reglas };
@@ -451,7 +516,13 @@ export function evaluarAsistencia({
         const fila = filas.get(empleado.id) || crearFila(empleado);
         const desde = parseFecha(empleado.startDate);
         const hasta = parseFecha(empleado.endDate);
-        const esperados = dias.filter((fecha) => (!desde || fecha >= desde) && (!hasta || fecha <= hasta));
+        // Se excluye el dia libre efectivo (de la ficha o el de su sucursal): en la
+        // sucursal con libre rotativo cada uno tiene un dia distinto.
+        const diaLibre = resolverDiaLibre(empleado, diaLibrePorSucursal);
+        fila.diaLibre = diaLibre;
+        const esperados = dias.filter(
+            (fecha) => (!desde || fecha >= desde) && (!hasta || fecha <= hasta) && !esDiaLibre(fecha, diaLibre)
+        );
         const horaEntrada = resolverHora(empleado, horaEntradaPorFuncionario, horaEntradaDefecto);
 
         fila.diasEsperados = esperados.length;

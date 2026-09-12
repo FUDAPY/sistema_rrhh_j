@@ -29,7 +29,11 @@ export function hashPassword(password) {
 }
 
 export function signToken(user) {
-    return jwt.sign({ sub: String(user._id), email: user.email, role: user.role }, SECRET, { expiresIn: EXPIRES });
+    const payload = { sub: String(user._id), email: user.email, role: user.role };
+    // JWT_EXPIRES_IN=never (o 0) firma un token SIN vencimiento. Por defecto se usa
+    // una duracion corta + renovacion deslizante desde el panel (/api/auth/refresh).
+    const sinVencimiento = !EXPIRES || EXPIRES === 'never' || EXPIRES === '0';
+    return jwt.sign(payload, SECRET, sinVencimiento ? {} : { expiresIn: EXPIRES });
 }
 
 export function publicUser(user) {

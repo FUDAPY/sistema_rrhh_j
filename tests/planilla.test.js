@@ -13,6 +13,9 @@ import {
     detectarColumnas,
     detectarCabeceraDias,
     detectarPeriodoBloques,
+    diaSemanaDe,
+    esDiaLibre,
+    etiquetaDiaLibre,
     parsearBloquesAsistencia,
     razonDescuento,
     construirIndiceEmpleados,
@@ -422,5 +425,132 @@ describe('planilla · cruce por cedula y razon del descuento', () => {
         expect(razonDescuento(fila)).toBe(
             'RAZON: (FECHAS AUSENTES 04/08, 11/08; HORARIOS TARDIOS EN FECHAS 02/08 08:35 (35 min, Gs. 30.000))'
         );
+    });
+});
+
+describe('planilla · dia libre en la ficha del funcionario', () => {
+    const diasDeAgosto = Array.from(
+        { length: 31 },
+        (_valor, indice) => `2026-08-${String(indice + 1).padStart(2, '0')}`
+    );
+
+    it('calcula el dia de la semana de una fecha ISO', () => {
+        expect(diaSemanaDe('2026-08-01')).toBe(6); // sabado
+        expect(diaSemanaDe('2026-08-02')).toBe(0); // domingo
+        expect(diaSemanaDe('2026-08-04')).toBe(2); // martes
+        expect(diaSemanaDe('no-es-fecha')).toBeNull();
+    });
+
+    it('reconoce el dia libre configurado (acepta numero o texto)', () => {
+        expect(esDiaLibre('2026-08-02', 0)).toBe(true);
+        expect(esDiaLibre('2026-08-02', '0')).toBe(true);
+        expect(esDiaLibre('2026-08-02', 2)).toBe(false);
+        expect(esDiaLibre('2026-08-02', null)).toBe(false);
+        expect(esDiaLibre('2026-08-02', '')).toBe(false);
+        expect(etiquetaDiaLibre(0)).toBe('Domingo');
+        expect(etiquetaDiaLibre('2')).toBe('Martes');
+    });
+
+    it('excluye el dia libre de los dias esperados (sucursal con libre rotativo)', () => {
+        const { filas } = evaluarAsistencia({
+            empleados: [
+                { id: 'dom', fullName: 'LIBRA DOMINGO', dni: '111', salary: SALARIO, status: 'ACTIVO', diaLibre: 0 },
+                { id: 'mar', fullName: 'LIBRA MARTES', dni: '222', salary: SALARIO, status: 'ACTIVO', diaLibre: 2 },
+                { id: 'nada', fullName: 'SIN DIA LIBRE', dni: '333', salary: SALARIO, status: 'ACTIVO' },
+            ],
+            dias: diasDeAgosto,
+            asistencias: [],
+        });
+
+        const domingo = filas.find((fila) => fila.employeeId === 'dom');
+        const martes = filas.find((fila) => fila.employeeId === 'mar');
+        const sinLibre = filas.find((fila) => fila.employeeId === 'nada');
+
+        expect(domingo.diasEsperados).toBe(26); // 31 dias - 5 domingos
+        expect(martes.diasEsperados).toBe(27); // 31 dias - 4 martes
+        expect(sinLibre.diasEsperados).toBe(31);
+
+        expect(domingo.fechasAusentes).not.toContain('2026-08-02');
+        expect(domingo.fechasAusentes).toContain('2026-08-03');
+        expect(martes.fechasAusentes).not.toContain('2026-08-04');
+        expect(domingo.diaLibre).toBe(0);
+    });
+
+    it('ignora la marcacion hecha en el dia libre', () => {
+        const { filas } = evaluarAsistencia({
+            empleados: [
+                { id: 'dom', fullName: 'LIBRA DOMINGO', dni: '111', salary: SALARIO, status: 'ACTIVO', diaLibre: 0 },
+            ],
+            dias: ['2026-08-02'], // domingo
+            asistencias: [{ biometricId: '111', fecha: '2026-08-02', entrada: parseHora('11:30') }],
+        });
+
+        expect(filas[0].diasEsperados).toBe(0);
+        expect(filas[0].tardanzas).toBe(0);
+        expect(filas[0].ausencias).toBe(0);
+        expect(filas[0].montoTotal).toBe(0);
+    });
+
+    it('encuentra la sucursal aunque la clave no este en mayusculas', () => {
+        const { filas } = evaluarAsistencia({
+            empleados: [
+                { id: 'e1', fullName: 'X', dni: '111', salary: SALARIO, status: 'ACTIVO', branch: 'MR LIN RESTAURANT' },
+            ],
+            dias: diasDeAgosto,
+            asistencias: [],
+            diaLibrePorSucursal: { '  mr lin restaurant ': 0 },
+        });
+
+        expect(filas[0].diaLibre).toBe(0);
+        expect(filas[0].diasEsperados).toBe(26);
+    });
+
+    it('hereda el dia libre de la sucursal y la ficha lo puede sobreescribir', () => {
+        const { filas } = evaluarAsistencia({
+            empleados: [
+                {
+                    id: 'hereda',
+                    fullName: 'HEREDA',
+                    dni: '111',
+                    salary: SALARIO,
+                    status: 'ACTIVO',
+                    branch: 'MR LIN RESTAURANT',
+                },
+                {
+                    id: 'propio',
+                    fullName: 'PROPIO',
+                    dni: '222',
+                    salary: SALARIO,
+                    status: 'ACTIVO',
+                    branch: 'MR LIN RESTAURANT',
+                    diaLibre: 2,
+                },
+                {
+                    id: 'suelto',
+                    fullName: 'SUELTO',
+                    dni: '333',
+                    salary: SALARIO,
+                    status: 'ACTIVO',
+                    branch: 'SIN CONFIGURAR',
+                },
+            ],
+            dias: diasDeAgosto,
+            asistencias: [],
+            diaLibrePorSucursal: { 'MR LIN RESTAURANT': 0 },
+        });
+
+        const hereda = filas.find((fila) => fila.employeeId === 'hereda');
+        const propio = filas.find((fila) => fila.employeeId === 'propio');
+        const suelto = filas.find((fila) => fila.employeeId === 'suelto');
+
+        expect(hereda.diaLibre).toBe(0);
+        expect(hereda.diasEsperados).toBe(26); // domingos fuera
+        expect(hereda.fechasAusentes).not.toContain('2026-08-02');
+
+        expect(propio.diaLibre).toBe(2); // la ficha gana sobre la sucursal
+        expect(propio.diasEsperados).toBe(27); // martes fuera
+
+        expect(suelto.diaLibre).toBeNull();
+        expect(suelto.diasEsperados).toBe(31);
     });
 });

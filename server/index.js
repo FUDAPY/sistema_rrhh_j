@@ -118,6 +118,14 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     res.json({ user: publicUser(user) });
 });
 
+// Renovacion deslizante: mientras la sesion siga siendo valida se entrega un token
+// nuevo, de modo que el panel no se corte en medio de la jornada.
+app.post('/api/auth/refresh', requireAuth, async (req, res) => {
+    const user = await findUserById(req.user.sub);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ token: signToken(user), user: publicUser(user) });
+});
+
 app.post('/api/auth/users', requireAdmin, async (req, res) => {
     const { email, password, fullName, role } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Email y contrasena son obligatorios' });

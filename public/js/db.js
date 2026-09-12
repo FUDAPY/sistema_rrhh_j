@@ -10,6 +10,32 @@ export function setTokenProvider(fn) {
     tokenProvider = fn;
 }
 
+// ---------------------------- Aviso de sesion vencida ----------------------------
+// El 401 en REST o el cierre del stream SSE significan que el token vencio (o que el
+// servidor cambio de secreto). Sin este aviso, el panel muestra listas vacias y el
+// usuario cree que "no le saltan" los descuentos o los salarios anteriores.
+let sessionExpiredHandler = null;
+let sessionExpiredNotificado = false;
+
+export function setSessionExpiredHandler(fn) {
+    sessionExpiredHandler = fn;
+    sessionExpiredNotificado = false;
+}
+
+export function reiniciarAvisoSesion() {
+    sessionExpiredNotificado = false;
+}
+
+function notificarSesionExpirada() {
+    if (sessionExpiredNotificado || !sessionExpiredHandler) return;
+    sessionExpiredNotificado = true;
+    try {
+        sessionExpiredHandler();
+    } catch (error) {
+        console.error('Error en el manejador de sesion expirada:', error);
+    }
+}
+
 function authHeaders() {
     const headers = { 'Content-Type': 'application/json' };
     const token = tokenProvider();
@@ -129,6 +155,10 @@ function buildSnapshot(docs) {
 
 async function parseResponse(response, collectionName) {
     if (!response.ok) {
+        // 401 = la sesion ya no es valida (token vencido o secreto cambiado): se
+        // avisa a la app para que no muestre tablas vacias sin explicacion.
+        if (response.status === 401) notificarSesionExpirada();
+
         const body = await response.json().catch(() => ({}));
         const error = new Error(body.error || `Error ${response.status} en ${collectionName}`);
         error.status = response.status;
@@ -216,6 +246,10 @@ export function onSnapshot(ref, onNext, onError) {
     });
 
     source.onerror = (event) => {
+        // EventSource no expone el codigo de estado. Si el stream quedo CLOSED, el
+        // servidor corto la conexion (tipicamente 401 por sesion vencida) y no va a
+        // reintentar: se avisa para que la app no se quede mostrando datos vacios.
+        if (source.readyState === 2) notificarSesionExpirada();
         if (onError) onError(event);
     };
 

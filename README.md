@@ -159,6 +159,16 @@ frontend con módulos por feature. El frontend **no conoce** MongoDB: habla con 
 - **Rol de sesión**: el menú y los módulos se resuelven con el rol firmado en el JWT
   (`auth.currentUser.role`) sin esperar a la colección `users` (que es exclusiva de ADMIN); el panel
   queda operativo al instante y no se abre un SSE que responda `403` en bucle.
+- **Sesión viva (renovación deslizante)**: el token dura `JWT_EXPIRES_IN` (por defecto `12h`) y el panel
+  pide uno nuevo **automáticamente 1 h antes de que venza** (`POST /api/auth/refresh`), también al volver
+  a la pestaña. Al renovar se **reabren los streams SSE** con el token nuevo, así los datos en vivo
+  (descuentos, salarios anteriores, vales…) siguen actualizándose sin recargar ni volver a loguear.
+  `JWT_EXPIRES_IN=never` firma un token sin vencimiento (no recomendado: una credencial eterna).
+- **Si la sesión ya venció**: el servidor responde **401** y los streams SSE se cortan. `db.js` detecta
+  el 401 (REST) y el cierre del stream, `auth.js` verifica la sesión con `GET /api/auth/me` y el panel
+  muestra un modal **«Sesión expirada»** con botón para reingresar (antes se quedaba mostrando **listas
+  vacías sin avisar**, y parecía que «no saltaban» los descuentos o los salarios anteriores). Si el corte
+  es de red, la verificación falla por timeout y **no** se cierra la sesión.
 - **HTTPS**: `server/index.js` confía en `X-Forwarded-Proto` (`trust proxy`) y responde **301** a las
   peticiones `http://` (`FORCE_HTTPS`, activo por defecto; `/api/health` queda exento para no romper
   el healthcheck). **HSTS** es opt-in (`HSTS_ENABLED=true`) y debe activarse **solo** cuando el
@@ -227,8 +237,13 @@ tokens del nombre` (los dos últimos solo cuando el resultado es inequívoco). L
     - **Más de 2 h** de retraso: **1 día completo** = `salario / 30`.
     - **Sin marcación** (ausencia): **1 día completo** = `salario / 30`.
     - La hora de entrada esperada sale del horario de la **sucursal** (`sucursales.entrada`), con override
-      general en el modal. La ventana de vigencia (`startDate`/`endDate`) y los **días laborables**
-      configurables evitan ausencias falsas; los inactivos sin marcaciones no se incluyen.
+      general en el modal. La ventana de vigencia (`startDate`/`endDate`), los **días laborables**
+      configurables y el **día libre semanal del funcionario** (`employees.diaLibre`) evitan ausencias
+      falsas; los inactivos sin marcaciones no se incluyen.
+    - **Día libre por funcionario**: se carga en la ficha (`0` = domingo … `6` = sábado; vacío = sin libre
+      fijo). Es por persona porque en la sucursal con **libre rotativo** a cada uno le toca un día distinto;
+      en las que solo libran domingo se carga `Domingo`. Ese día no genera ausencia ni tardanza (si igual
+      marcan, se ignora).
 4. **Reporte A4 (3 columnas).** Vista de impresión A4 con logo, dirección, periodo y responsable, y la
    tabla con **NOMBRE DEL FUNCIONARIO** (con su C.I. debajo), **RAZÓN (FECHAS Y HORARIOS)** y **MONTO A
    DESCONTAR**:
@@ -382,20 +397,20 @@ Solución: **Developer: Reload Window** (`Ctrl+Shift+P`). El CLI (`npm run forma
 
 Copiar `.env.production.example` a `.env` (o cargarlas en Dokploy → Environment).
 
-| Variable                     | Obligatoria    | Descripción                                                    |
-| ---------------------------- | -------------- | -------------------------------------------------------------- |
-| `MONGODB_URI`                | ✅             | URI de conexión. En producción usar la **interna**.            |
-| `MONGODB_DB`                 | ✅             | Base de datos (por defecto `rrhh`).                            |
-| `JWT_SECRET`                 | ✅             | Secreto para firmar sesiones (largo y aleatorio).              |
-| `JWT_EXPIRES_IN`             | —              | Duración de la sesión (por defecto `12h`).                     |
-| `PORT`                       | —              | Puerto del servidor (por defecto `3000`).                      |
-| `FORCE_HTTPS`                | —              | `true` (def.): redirige `http://` → `https://` con 301.        |
-| `HSTS_ENABLED`               | —              | `true` publica HSTS. Activar solo con certificado válido.      |
-| `HSTS_MAX_AGE`               | —              | Segundos de HSTS (por defecto `15552000` = 180 días).          |
-| `RAILPACK_START_CMD`         | Dokploy        | `npm run start:prod` — evita que Railpack sirva como estático. |
-| `RAILPACK_NODE_VERSION`      | Dokploy        | `22` (vitest 5 exige Node ≥ 22.12)                             |
-| `FIREBASE_SERVICE_ACCOUNT`   | Solo migración | Ruta al JSON del Admin SDK.                                    |
-| `MIGRATION_DEFAULT_PASSWORD` | Solo migración | Contraseña temporal para usuarios migrados.                    |
+| Variable                     | Obligatoria    | Descripción                                                          |
+| ---------------------------- | -------------- | -------------------------------------------------------------------- |
+| `MONGODB_URI`                | ✅             | URI de conexión. En producción usar la **interna**.                  |
+| `MONGODB_DB`                 | ✅             | Base de datos (por defecto `rrhh`).                                  |
+| `JWT_SECRET`                 | ✅             | Secreto para firmar sesiones (largo y aleatorio).                    |
+| `JWT_EXPIRES_IN`             | —              | Duración de la sesión (por defecto `12h`); el panel la renueva sola. |
+| `PORT`                       | —              | Puerto del servidor (por defecto `3000`).                            |
+| `FORCE_HTTPS`                | —              | `true` (def.): redirige `http://` → `https://` con 301.              |
+| `HSTS_ENABLED`               | —              | `true` publica HSTS. Activar solo con certificado válido.            |
+| `HSTS_MAX_AGE`               | —              | Segundos de HSTS (por defecto `15552000` = 180 días).                |
+| `RAILPACK_START_CMD`         | Dokploy        | `npm run start:prod` — evita que Railpack sirva como estático.       |
+| `RAILPACK_NODE_VERSION`      | Dokploy        | `22` (vitest 5 exige Node ≥ 22.12)                                   |
+| `FIREBASE_SERVICE_ACCOUNT`   | Solo migración | Ruta al JSON del Admin SDK.                                          |
+| `MIGRATION_DEFAULT_PASSWORD` | Solo migración | Contraseña temporal para usuarios migrados.                          |
 
 ---
 
@@ -447,7 +462,7 @@ Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": tr
 
 | Colección                    | Campos principales                                                                                                                                                                                              |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `employees`                  | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address`                                                                       |
+| `employees`                  | `fullName`, `dni`, `position`, `branch`, `salary`, `startDate`, `endDate`, `status` (ACTIVO/INACTIVO), `photo`, `dob`, `phone`, `address`, `diaLibre` (`0` = domingo … `6` = sábado, `null` = sin libre fijo)   |
 | `salaryHistory`              | `employeeId`, `previousSalary`, `newSalary`, `effectiveFrom`, `reason` (+ auditoría)                                                                                                                            |
 | `vales`                      | `employeeId`, `amount`, `requestedAmount`, `approvedAmount`, `reason`, `status`, `estadoAprobacion`, `valeDateKey`, `paymentCode`                                                                               |
 | `salaries`                   | `employeeId`, `netPay`, `salaryBase`, `month`, `year`, `date`, `type` (LIQUIDACION/INDIVIDUAL), `paymentCode`, `estadoAprobacion`                                                                               |
@@ -455,7 +470,7 @@ Las fechas viajan como `{ "__ts": <epochMillis> }` (o `{ "__serverTimestamp": tr
 | `ausencias`                  | `employeeId`, `type`, `startDate`, `endDate`, `minutosTarde`, `montoDescuento`                                                                                                                                  |
 | `comisiones`                 | `employeeId`, `amount`, `reason`, `status` (Pendiente/Aprobado/Pagado)                                                                                                                                          |
 | `evaluaciones`               | `employeeId`, `score`, período                                                                                                                                                                                  |
-| `sucursales`                 | `name`, `entrada`, `salida`                                                                                                                                                                                     |
+| `sucursales`                 | `name`, `entrada`, `salida`, `diaLibre` (0 = domingo … 6 = sábado, `null` = sin libre fijo)                                                                                                                     |
 | `proveedores`                | `name`, `ruc`, `phone`, `category`, `address`                                                                                                                                                                   |
 | `users`                      | `email`, `role`, `fullName`, `passwordHash` (nunca sale al cliente)                                                                                                                                             |
 | `health`, `salaryCarryovers` | Soporte                                                                                                                                                                                                         |

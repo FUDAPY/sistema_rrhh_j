@@ -9,7 +9,7 @@
  * ============================================================================
  */
 
-import { onAuthStateChanged, signOut, createUser } from './auth.js';
+import { onAuthStateChanged, signOut, createUser, verificarSesion, onTokenRenovado } from './auth.js';
 
 import {
     collection,
@@ -21,6 +21,7 @@ import {
     doc,
     addDoc,
     serverTimestamp,
+    setSessionExpiredHandler,
     where,
 } from './db.js';
 
@@ -34,6 +35,7 @@ import * as SalariosModule from './salarios.js';
 import * as ComisionesModule from './comisiones.js';
 import * as AusenciasModule from './ausencias.js';
 import * as PlanillaModule from './planilla-import.js';
+import { DIAS_LIBRES, etiquetaDiaLibre } from './planilla.js';
 
 const VERSION = '5.7.0';
 
@@ -67,6 +69,7 @@ let appBootstrapped = false;
 let sucursalesData = []; // NUEVO: Estado global para sucursales
 let currentView = 'dashboard';
 let rrhhModalLocks = 0;
+let cerrarSuscripciones = [];
 
 const RRHH_ALLOWED_VIEWS = [
     'dashboard',
@@ -104,6 +107,48 @@ function denyAccess() {
         });
     }
 }
+
+// Si el servidor invalido la sesion (token vencido o secreto cambiado) se avisa y se
+// ofrece reingresar, en lugar de dejar el panel con listas vacias ("no me saltan los
+// descuentos ni los salarios anteriores" era justamente esto: los SSE daban 401).
+async function manejarSesionExpirada() {
+    const valida = await verificarSesion();
+    if (valida) return; // corte transitorio: no se cierra la sesion
+    mostrarAvisoSesionExpirada();
+}
+
+function mostrarAvisoSesionExpirada() {
+    if (document.getElementById('avisoSesionExpirada')) return;
+
+    const aviso = document.createElement('div');
+    aviso.id = 'avisoSesionExpirada';
+    aviso.className = 'fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6';
+    aviso.innerHTML = `
+        <div class="bg-white rounded-[32px] p-10 max-w-md w-full text-center shadow-2xl">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl">
+                <i class="ph-fill ph-lock-key"></i>
+            </div>
+            <h2 class="text-2xl font-black text-slate-800 tracking-tight">Sesion expirada</h2>
+            <p class="text-sm font-bold text-slate-500 mt-3 leading-relaxed">
+                Por seguridad la sesion dura 12 h. Los datos que ves pueden estar incompletos:
+                los descuentos y los salarios anteriores no terminaron de cargar.
+            </p>
+            <button type="button" id="btnReingresarSesion" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition-colors">
+                VOLVER A INICIAR SESION
+            </button>
+        </div>`;
+    document.body.appendChild(aviso);
+
+    const boton = document.getElementById('btnReingresarSesion');
+    if (boton) {
+        boton.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = 'index.html';
+        });
+    }
+}
+
+setSessionExpiredHandler(manejarSesionExpirada);
 
 function syncUserRole() {
     if (!auth.currentUser) return;
@@ -173,82 +218,123 @@ if (btnLogout) {
     });
 }
 
+// ---------------------------- Suscripciones en vivo ----------------------------
+// Se guardan para poder reabrirlas cuando la sesion se renueva: el token viaja en la
+// URL del SSE, asi que un stream abierto con el token viejo no se puede reutilizar.
+function suscribir(cerrar) {
+    cerrarSuscripciones.push(cerrar);
+}
+
+function iniciarSuscripcionesRealtime() {
+    // La coleccion 'users' es exclusiva del rol ADMIN: para RRHH el servidor responde
+    // 403 y el EventSource reintentaria en bucle ralentizando la carga.
+    if (currentUserRole === 'ADMIN') {
+        suscribir(
+            onSnapshot(collection(db, 'users'), (snapshot) => {
+                usersData = [];
+                snapshot.forEach((doc) => usersData.push({ id: doc.id, ...doc.data() }));
+                usersLoaded = true;
+                syncUserRole();
+                refreshCurrentViewIf('admin_users');
+            })
+        );
+    }
+
+    suscribir(
+        onSnapshot(query(collection(db, 'sucursales'), orderBy('name')), (snapshot) => {
+            sucursalesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            console.log(`${sucursalesData.length} sucursales sincronizadas.`);
+            refreshCurrentViewIf('admin_suc');
+            refreshCurrentViewIf('rrhh_new');
+        })
+    );
+
+    suscribir(
+        onSnapshot(query(collection(db, 'employees'), orderBy('fullName')), (snapshot) => {
+            employeesData = [];
+            snapshot.forEach((doc) => employeesData.push({ id: doc.id, ...doc.data() }));
+            updateDashboardCards();
+            refreshCurrentViewIf('rrhh');
+            refreshCurrentViewIf('salario');
+        })
+    );
+
+    suscribir(
+        onSnapshot(collection(db, 'salaryHistory'), (snapshot) => {
+            salaryHistoryData = [];
+            snapshot.forEach((doc) => salaryHistoryData.push({ id: doc.id, ...doc.data() }));
+            SalariosModule.setSalaryHistoryData(salaryHistoryData);
+            refreshCurrentViewIf('rrhh');
+            refreshCurrentViewIf('salario');
+        })
+    );
+
+    suscribir(
+        onSnapshot(collection(db, 'vales'), (snapshot) => {
+            valesData = [];
+            snapshot.forEach((doc) => valesData.push({ id: doc.id, ...doc.data() }));
+            refreshCurrentViewIf('vales');
+            refreshCurrentViewIf('salario');
+        })
+    );
+
+    suscribir(
+        onSnapshot(collection(db, 'comisiones'), (snapshot) => {
+            comisionesData = [];
+            snapshot.forEach((doc) => comisionesData.push({ id: doc.id, ...doc.data() }));
+            refreshCurrentViewIf('com');
+            refreshCurrentViewIf('salario');
+        })
+    );
+
+    suscribir(
+        onSnapshot(query(collection(db, 'salaries'), orderBy('date', 'desc')), (snapshot) => {
+            salariesData = [];
+            snapshot.forEach((doc) => salariesData.push({ id: doc.id, ...doc.data() }));
+            refreshCurrentViewIf('salario');
+            updateDashboardCards();
+        })
+    );
+
+    suscribir(
+        onSnapshot(collection(db, 'descuentos'), (snapshot) => {
+            descuentosData = [];
+            snapshot.forEach((doc) => descuentosData.push({ id: doc.id, ...doc.data() }));
+            refreshCurrentViewIf('admin_desc');
+            refreshCurrentViewIf('salario_pend');
+            refreshCurrentViewIf('salario_individual');
+        })
+    );
+
+    suscribir(
+        onSnapshot(collection(db, 'ausencias'), (snap) => {
+            ausenciasData = [];
+            snap.forEach((d) => ausenciasData.push({ id: d.id, ...d.data() }));
+            refreshCurrentViewIf('admin_ausencia');
+        })
+    );
+}
+
+function reiniciarSuscripcionesRealtime() {
+    for (const cerrar of cerrarSuscripciones) {
+        try {
+            cerrar();
+        } catch (error) {
+            console.error('Error cerrando un stream:', error);
+        }
+    }
+    cerrarSuscripciones = [];
+    iniciarSuscripcionesRealtime();
+}
+
+onTokenRenovado(reiniciarSuscripcionesRealtime);
+
 function initApp() {
     console.info('%cInicializando aplicacion LINGROUP', 'color: #3b82f6; font-weight: bold; font-size: 1.2rem;');
     syncVersionBadges();
     if (currentUserRole) renderMenu();
 
-    // La coleccion 'users' es exclusiva del rol ADMIN: para RRHH el servidor
-    // responde 403 y el EventSource reintentaria en bucle ralentizando la carga.
-    if (currentUserRole === 'ADMIN') {
-        onSnapshot(collection(db, 'users'), (snapshot) => {
-            usersData = [];
-            snapshot.forEach((doc) => usersData.push({ id: doc.id, ...doc.data() }));
-            usersLoaded = true;
-            syncUserRole();
-            refreshCurrentViewIf('admin_users');
-        });
-    }
-
-    onSnapshot(query(collection(db, 'sucursales'), orderBy('name')), (snapshot) => {
-        sucursalesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        console.log(`${sucursalesData.length} sucursales sincronizadas.`);
-        refreshCurrentViewIf('admin_suc');
-        refreshCurrentViewIf('rrhh_new');
-    });
-
-    const qEmp = query(collection(db, 'employees'), orderBy('fullName'));
-    onSnapshot(qEmp, (snapshot) => {
-        employeesData = [];
-        snapshot.forEach((doc) => employeesData.push({ id: doc.id, ...doc.data() }));
-        updateDashboardCards();
-        refreshCurrentViewIf('rrhh');
-        refreshCurrentViewIf('salario');
-    });
-
-    onSnapshot(collection(db, 'salaryHistory'), (snapshot) => {
-        salaryHistoryData = [];
-        snapshot.forEach((doc) => salaryHistoryData.push({ id: doc.id, ...doc.data() }));
-        SalariosModule.setSalaryHistoryData(salaryHistoryData);
-        refreshCurrentViewIf('rrhh');
-        refreshCurrentViewIf('salario');
-    });
-
-    onSnapshot(collection(db, 'vales'), (snapshot) => {
-        valesData = [];
-        snapshot.forEach((doc) => valesData.push({ id: doc.id, ...doc.data() }));
-        refreshCurrentViewIf('vales');
-        refreshCurrentViewIf('salario');
-    });
-
-    onSnapshot(collection(db, 'comisiones'), (snapshot) => {
-        comisionesData = [];
-        snapshot.forEach((doc) => comisionesData.push({ id: doc.id, ...doc.data() }));
-        refreshCurrentViewIf('com');
-        refreshCurrentViewIf('salario');
-    });
-
-    const qSal = query(collection(db, 'salaries'), orderBy('date', 'desc'));
-    onSnapshot(qSal, (snapshot) => {
-        salariesData = [];
-        snapshot.forEach((doc) => salariesData.push({ id: doc.id, ...doc.data() }));
-        refreshCurrentViewIf('salario');
-        updateDashboardCards();
-    });
-
-    onSnapshot(collection(db, 'descuentos'), (snapshot) => {
-        descuentosData = [];
-        snapshot.forEach((doc) => descuentosData.push({ id: doc.id, ...doc.data() }));
-        refreshCurrentViewIf('admin_desc');
-        refreshCurrentViewIf('salario_pend');
-        refreshCurrentViewIf('salario_individual');
-    });
-
-    onSnapshot(collection(db, 'ausencias'), (snap) => {
-        ausenciasData = [];
-        snap.forEach((d) => ausenciasData.push({ id: d.id, ...d.data() }));
-        refreshCurrentViewIf('admin_ausencia');
-    });
+    iniciarSuscripcionesRealtime();
 
     ValesModule.initValesGlobalListeners(showToast);
     ComisionesModule.initComisionesGlobalListeners(showToast);
@@ -507,6 +593,9 @@ function initRRHHGlobalListeners() {
             form.position.value = emp.position;
             form.salary.value = emp.salary;
             form.branch.value = emp.branch;
+            if (form.diaLibre) {
+                form.diaLibre.value = emp.diaLibre === null || emp.diaLibre === undefined ? '' : String(emp.diaLibre);
+            }
 
             if (form.status) form.status.value = emp.status || 'ACTIVO';
             if (form.endDate) form.endDate.value = emp.endDate || '';
@@ -1414,6 +1503,20 @@ function viewNewEmployee() {
                 </div>
 
                 <div class="md:col-span-2 space-y-2">
+                    <label class="text-[10px] font-black text-violet-600 uppercase tracking-widest px-2">Dia Libre Semanal</label>
+                    <div class="relative">
+                        <select name="diaLibre" class="w-full bg-violet-50/50 border border-violet-100 p-4 rounded-2xl focus:bg-white focus:border-violet-500 outline-none transition-all font-bold text-slate-700 appearance-none">
+                            <option value="">SIN DIA LIBRE FIJO (se usan los dias del periodo)</option>
+                            ${DIAS_LIBRES.map((dia) => `<option value="${dia.valor}">${dia.etiqueta.toUpperCase()}</option>`).join('')}
+                        </select>
+                        <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 px-2">
+                        Ese dia no se cuenta como ausencia ni tardanza en la planilla del reloj. Ej: domingo para las sucursales que solo libran domingo; en la sucursal con libre rotativo se carga el dia que le toca a cada funcionario.
+                    </p>
+                </div>
+
+                <div class="md:col-span-2 space-y-2">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Cargo / Titulo Profesional</label>
                     <input type="text" name="position" required class="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-700">
                 </div>
@@ -1516,6 +1619,8 @@ function setupEmployeeForm() {
             position: data.get('position').toUpperCase(),
             salary: Number(data.get('salary')),
             branch: data.get('branch'),
+            diaLibre:
+                data.get('diaLibre') === '' || data.get('diaLibre') === null ? null : Number(data.get('diaLibre')),
             photo: photoBase64 || preview.src || '',
             status: currentStatus,
             endDate: endDateValue || null,
@@ -1773,6 +1878,7 @@ function viewAdminSucursales() {
                     <div class="flex gap-4 mt-2">
                         <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md"><i class="ph-bold ph-clock"></i> Ent: ${suc.entrada || '--:--'}</span>
                         <span class="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md"><i class="ph-bold ph-clock"></i> Sal: ${suc.salida || '--:--'}</span>
+                        <span class="text-xs font-bold text-violet-600 bg-violet-50 px-2 py-1 rounded-md"><i class="ph-bold ph-calendar-blank"></i> Libre: ${suc.diaLibre === null || suc.diaLibre === undefined || suc.diaLibre === '' ? 'sin fijo' : etiquetaDiaLibre(suc.diaLibre)}</span>
                     </div>
                 </div>
                 <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1790,7 +1896,7 @@ function viewAdminSucursales() {
             <h3 class="text-3xl font-black mb-2 relative z-10">Gestion de Sucursales y Horarios</h3>
             <p class="text-slate-400 text-sm font-medium relative z-10">Defina los horarios operativos para el calculo automatico de llegadas tardias.</p>
             
-            <form id="sucursalForm" class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10" onsubmit="saveSucursal(event)">
+            <form id="sucursalForm" class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10" onsubmit="saveSucursal(event)">
                 <input type="hidden" id="sucId">
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1 block">Nombre de Sucursal</label>
@@ -1804,7 +1910,14 @@ function viewAdminSucursales() {
                     <label class="text-[10px] font-black text-rose-400 uppercase tracking-widest px-2 mb-1 block">Horario de Salida</label>
                     <input type="time" id="sucSalida" required class="w-full bg-slate-800 border-2 border-slate-700 p-4 rounded-2xl font-bold text-rose-400 outline-none focus:border-rose-500 transition-all">
                 </div>
-                <div class="md:col-span-3 flex justify-end mt-2">
+                <div>
+                    <label class="text-[10px] font-black text-violet-400 uppercase tracking-widest px-2 mb-1 block">Dia Libre por Defecto</label>
+                    <select id="sucDiaLibre" class="w-full bg-slate-800 border-2 border-slate-700 p-4 rounded-2xl font-bold text-violet-300 outline-none focus:border-violet-500 transition-all">
+                        <option value="">SIN DIA LIBRE FIJO</option>
+                        ${DIAS_LIBRES.map((dia) => `<option value="${dia.valor}">${dia.etiqueta.toUpperCase()}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="md:col-span-4 flex justify-end mt-2">
                     <button type="submit" id="btnSaveSuc" class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-blue-500 transition-all flex items-center gap-2">
                         <i class="ph-bold ph-floppy-disk text-lg"></i> GUARDAR SUCURSAL
                     </button>
@@ -1824,6 +1937,8 @@ window.saveSucursal = async (e) => {
     const name = document.getElementById('sucName').value.toUpperCase();
     const entrada = document.getElementById('sucEntrada').value;
     const salida = document.getElementById('sucSalida').value;
+    const diaLibreValor = document.getElementById('sucDiaLibre')?.value || '';
+    const diaLibre = diaLibreValor === '' ? null : Number(diaLibreValor);
 
     const btn = document.getElementById('btnSaveSuc');
     const oldTxt = btn.innerHTML;
@@ -1832,10 +1947,16 @@ window.saveSucursal = async (e) => {
 
     try {
         if (id) {
-            await updateDoc(doc(db, 'sucursales', id), { name, entrada, salida });
+            await updateDoc(doc(db, 'sucursales', id), { name, entrada, salida, diaLibre });
             showToast('Actualizado', 'Sucursal modificada con exito.');
         } else {
-            await addDoc(collection(db, 'sucursales'), { name, entrada, salida, createdAt: serverTimestamp() });
+            await addDoc(collection(db, 'sucursales'), {
+                name,
+                entrada,
+                salida,
+                diaLibre,
+                createdAt: serverTimestamp(),
+            });
             showToast('Guardado', 'Nueva sucursal registrada.');
         }
         document.getElementById('sucursalForm').reset();
@@ -1855,6 +1976,10 @@ window.editSucursal = (id) => {
         document.getElementById('sucName').value = suc.name;
         document.getElementById('sucEntrada').value = suc.entrada || '';
         document.getElementById('sucSalida').value = suc.salida || '';
+        const selectDia = document.getElementById('sucDiaLibre');
+        if (selectDia) {
+            selectDia.value = suc.diaLibre === null || suc.diaLibre === undefined ? '' : String(suc.diaLibre);
+        }
         document.getElementById('btnSaveSuc').innerHTML =
             '<i class="ph-bold ph-pencil text-lg"></i> ACTUALIZAR SUCURSAL';
         window.scrollTo({ top: 0, behavior: 'smooth' });
